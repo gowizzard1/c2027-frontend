@@ -312,6 +312,8 @@ function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => 
     social_media: '📱 Social Media',
   };
 
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const updateStatus = async (id: string, status: string) => {
     await fetch(`/api/admin/volunteers/${id}`, {
       method: 'PATCH', headers, body: JSON.stringify({ status }),
@@ -319,12 +321,25 @@ function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => 
     setVolunteers(prev => prev.map(v => v.id === id ? { ...v, status } : v));
   };
 
+  const copyToolkitLink = async (v: any) => {
+    if (!v.accessToken) { alert('This volunteer has no access link yet. It is generated on registration.'); return; }
+    const link = `${window.location.origin}/volunteer/toolkit?key=${v.accessToken}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedId(v.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // Fallback: show the link so the admin can copy manually.
+      prompt('Copy this toolkit link and send it to the volunteer:', link);
+    }
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Volunteers ({volunteers.length})</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Approving a volunteer sends them a WhatsApp/SMS notification to log in at <code>/volunteer/login</code>.
-        Approved <strong>Social Media</strong> volunteers then get the group invite &amp; sharing toolkit
+        After approving a <strong>Social Media</strong> volunteer, use <strong>Copy toolkit link</strong> and
+        send it to them by email/message. That personal link unlocks the group invite &amp; sharing toolkit
         (configure the group link in the Settings tab).
       </p>
       {volunteers.length === 0 ? (
@@ -356,9 +371,14 @@ function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => 
                       'bg-yellow-100 text-yellow-700'
                     }`}>{v.status}</span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <button onClick={() => updateStatus(v.id, 'approved')} className="text-xs text-green-600 hover:underline mr-2">Approve</button>
-                    <button onClick={() => updateStatus(v.id, 'rejected')} className="text-xs text-red-600 hover:underline">Reject</button>
+                    <button onClick={() => updateStatus(v.id, 'rejected')} className="text-xs text-red-600 hover:underline mr-2">Reject</button>
+                    {v.role === 'social_media' && v.status === 'approved' && (
+                      <button onClick={() => copyToolkitLink(v)} className="text-xs text-brand-green font-semibold hover:underline">
+                        {copiedId === v.id ? '✓ Copied' : '🔗 Copy toolkit link'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
