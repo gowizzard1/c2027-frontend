@@ -7,7 +7,7 @@ import Footer from '@/components/Footer';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Campaign Portal - Together We Rise',
+  title: 'Isaac K. Maiywa - Kirgit Kipkeleny Tulwo',
   description: 'Join our movement for change. Donate, volunteer, and be part of the vision.',
 };
 

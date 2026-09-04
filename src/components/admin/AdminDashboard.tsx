@@ -321,7 +321,12 @@ function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => 
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Volunteers ({volunteers.length})</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">Volunteers ({volunteers.length})</h2>
+      <p className="text-sm text-gray-500 mb-6">
+        Approving a volunteer sends them a WhatsApp/SMS notification to log in at <code>/volunteer/login</code>.
+        Approved <strong>Social Media</strong> volunteers then get the group invite &amp; sharing toolkit
+        (configure the group link in the Settings tab).
+      </p>
       {volunteers.length === 0 ? (
         <p className="text-gray-500">No volunteers registered yet.</p>
       ) : (
@@ -766,6 +771,35 @@ function SettingsPanel({ headers, onLogout }: { headers: any; onLogout: () => vo
             <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
             <input value={settings.address || ''} onChange={e => setSettings({ ...settings, address: e.target.value })}
               className="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+        </div>
+
+        {/* Social Media Volunteer Team */}
+        <div className="border-t pt-6">
+          <h3 className="font-bold text-gray-900 mb-1">Social Media Volunteer Team</h3>
+          <p className="text-xs text-gray-500 mb-4">
+            Shown to approved social-media volunteers after they log in at <code>/volunteer/login</code>.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Social Media Group Link</label>
+              <input value={settings.socialGroupLink || ''} onChange={e => setSettings({ ...settings, socialGroupLink: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="https://chat.whatsapp.com/... (dedicated social team group)" />
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Default Share Message</label>
+                <textarea value={settings.socialShareMessage || ''} onChange={e => setSettings({ ...settings, socialShareMessage: e.target.value })}
+                  rows={3} maxLength={500}
+                  className="w-full border rounded-lg px-3 py-2 text-sm resize-y" placeholder="Join me in supporting the campaign! 🇰🇪" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Default Share URL</label>
+                <input value={settings.socialShareUrl || ''} onChange={e => setSettings({ ...settings, socialShareUrl: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="https://your-campaign-site.com" />
+                <p className="text-xs text-gray-400 mt-1">Link shared alongside the message (defaults to the site homepage).</p>
+              </div>
+            </div>
           </div>
         </div>
 
