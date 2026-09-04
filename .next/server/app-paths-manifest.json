@@ -1,8 +1,0 @@
-{
-  "/about/page": "app/about/page.js",
-  "/page": "app/page.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/volunteer/page": "app/volunteer/page.js",
-  "/portal-mc2027/page": "app/portal-mc2027/page.js",
-  "/manifesto/page": "app/manifesto/page.js"
-}
