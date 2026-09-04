@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
-import VolunteerToolkit, { ToolkitData } from '@/components/volunteer/VolunteerToolkit';
 
 const TOKEN_KEY = 'campaign_volunteer_token';
 
 function ActivateInner() {
   const params = useSearchParams();
+  const router = useRouter();
   const key = params.get('key') || '';
 
   const [name, setName] = useState('');
@@ -17,7 +17,6 @@ function ActivateInner() {
   const [needsPassword, setNeedsPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [data, setData] = useState<ToolkitData | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -56,7 +55,7 @@ function ActivateInner() {
       const d = await res.json();
       if (res.ok && d.token) {
         sessionStorage.setItem(TOKEN_KEY, d.token);
-        setData(d);
+        router.replace('/volunteer/dashboard');
       } else {
         setError(d.message || 'Could not set your password. Please try again.');
       }
@@ -69,7 +68,7 @@ function ActivateInner() {
 
   if (loading) return <div className="max-w-md mx-auto px-4 py-16 text-center text-gray-400">Loading…</div>;
 
-  if (error && !data) {
+  if (error) {
     return (
       <div className="max-w-lg mx-auto px-4 py-12">
         <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
@@ -80,21 +79,6 @@ function ActivateInner() {
             Already set a password? Log in →
           </Link>
         </div>
-      </div>
-    );
-  }
-
-  // Activated → show toolkit + how to log in next time.
-  if (data) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center">
-          <p className="font-bold text-green-800">✅ Your account is set up!</p>
-          <p className="text-sm text-green-700 mt-1">
-            Next time, log in at <Link href="/volunteer/login" className="underline font-semibold">/volunteer/login</Link> with your email <strong>{email}</strong>.
-          </p>
-        </div>
-        <VolunteerToolkit data={data} />
       </div>
     );
   }

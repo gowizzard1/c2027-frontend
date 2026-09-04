@@ -365,6 +365,21 @@ See you inside — together we rise! 🇰🇪`
     }
   };
 
+  const deleteVolunteer = async (v: any) => {
+    const confirmed = confirm(
+      `Delete ${v.name}? This permanently removes their volunteer record and account access. This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    const res = await fetch(`/api/admin/volunteers/${v.id}`, { method: 'DELETE', headers });
+    if (res.ok) {
+      setVolunteers(prev => prev.filter(item => item.id !== v.id));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.message || 'Could not delete this volunteer. Please try again.');
+    }
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Volunteers ({volunteers.length})</h2>
@@ -411,11 +426,14 @@ See you inside — together we rise! 🇰🇪`
                         <button onClick={() => copyInvite(v)} className="text-xs text-brand-green font-semibold hover:underline mr-2">
                           {copiedId === v.id ? '✓ Copied invite' : '✉️ Copy invite'}
                         </button>
-                        <button onClick={() => resetAccess(v)} className="text-xs text-gray-500 hover:underline">
+                        <button onClick={() => resetAccess(v)} className="text-xs text-gray-500 hover:underline mr-2">
                           Reset access
                         </button>
                       </>
                     )}
+                    <button onClick={() => deleteVolunteer(v)} className="text-xs text-red-600 hover:text-red-700 hover:underline">
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
