@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@layer base {
+  html {
+    /* Prevent iOS/Safari from auto-inflating font sizes in landscape */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white text-brand-black font-sans;
+    /* Guard against accidental horizontal scrolling on small screens */
+    overflow-x: hidden;
+    /* Softer tap highlight on mobile */
+    -webkit-tap-highlight-color: rgba(245, 193, 0, 0.2);
+  }
+
+  /* Media never forces the layout wider than the viewport */
+  img,
+  svg,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Comfortable tap targets on touch devices without changing desktop look */
+  @media (hover: none) and (pointer: coarse) {
+    button,
+    a[role='button'],
+    [role='radio'],
+    input[type='submit'] {
+      min-height: 44px;
+    }
+  }
+}
+
+@layer components {
+  /* Primary CTA — yellow bg, black text */
+  .btn-primary {
+    @apply bg-brand-yellow hover:bg-brand-yellowlt text-brand-black font-extrabold py-3 px-6 rounded-lg transition-all shadow-sm inline-block text-center;
+  }
+  /* Secondary CTA — green bg, white text */
+  .btn-green {
+    @apply bg-brand-green hover:bg-brand-greenlt text-white font-bold py-3 px-6 rounded-lg transition-all shadow-sm inline-block text-center;
+  }
+  /* Ghost — black border, black text */
+  .btn-ghost {
+    @apply border-2 border-brand-black text-brand-black hover:bg-brand-black hover:text-brand-yellow font-bold py-3 px-6 rounded-lg transition-all inline-block text-center;
+  }
+  /* Ghost white — white border, white text */
+  .btn-ghost-white {
+    @apply border-2 border-white text-white hover:bg-white hover:text-brand-black font-bold py-3 px-6 rounded-lg transition-all inline-block text-center;
+  }
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+  }
+  .section-label {
+    @apply text-xs font-extrabold uppercase tracking-widest text-brand-green;
+  }
+  /* Hide scrollbar for horizontally-scrollable tab/filter rows on mobile */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
