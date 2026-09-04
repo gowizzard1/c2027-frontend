@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 type VolunteerRole = 'polling_agent' | 'mobilizer' | 'social_media';
 
@@ -110,7 +111,14 @@ export default function VolunteerPage() {
 
   return (
     <div className="bg-white text-brand-black">
-      <PageHeader label="Get Involved" title="Join Our Team" subtitle="Be part of the movement. Choose your role and sign up today." />
+      <PageHeader label="Get Involved" title="Join Our Team" subtitle="Be part of the movement. Choose your role and sign up today.">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm text-gray-300">Already registered?</span>
+          <Link href="/volunteer/login" className="inline-flex items-center gap-2 rounded-lg bg-brand-yellow px-5 py-2.5 text-sm font-extrabold text-brand-black transition-colors hover:bg-brand-yellowlt">
+            🔐 Volunteer Login →
+          </Link>
+        </div>
+      </PageHeader>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
         {/* Role Selection */}
