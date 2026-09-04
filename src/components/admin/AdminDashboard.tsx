@@ -369,10 +369,10 @@ See you inside — together we rise! 🇰🇪`
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Volunteers ({volunteers.length})</h2>
       <p className="text-sm text-gray-500 mb-6">
-        After approving a volunteer, click <strong>Copy invite</strong> and send it to them (email/message).
-        It contains their activation link (to set a password) and login details. Approved
-        <strong> Social Media</strong> volunteers then get the group invite &amp; sharing toolkit
-        (set the group link in Settings). Use <strong>Reset access</strong> if they forget their password.
+        Approving a volunteer <strong>automatically emails them an invite</strong> (activation link to set a
+        password + login details). <strong>Copy invite</strong> is a manual fallback. Approved
+        <strong> Social Media</strong> volunteers get the group invite &amp; sharing toolkit
+        (set the group link in Settings). <strong>Reset access</strong> emails a fresh link if they forget their password.
       </p>
       {volunteers.length === 0 ? (
         <p className="text-gray-500">No volunteers registered yet.</p>
