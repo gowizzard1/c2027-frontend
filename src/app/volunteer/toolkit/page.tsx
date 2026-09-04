@@ -4,200 +4,155 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
+import VolunteerToolkit, { ToolkitData } from '@/components/volunteer/VolunteerToolkit';
 
-interface Toolkit {
-  name: string;
-  role: string;
-  status: string;
-  isSocialMedia: boolean;
-  isApproved: boolean;
-  approvedSocial: boolean;
-  social: { groupLink: string; shareMessage: string; shareUrl: string } | null;
-}
+const TOKEN_KEY = 'campaign_volunteer_token';
 
-const roleLabels: Record<string, string> = {
-  polling_agent: 'Polling Agent',
-  mobilizer: 'Mobilizer',
-  social_media: 'Social Media Volunteer',
-};
-
-function ToolkitInner() {
+function ActivateInner() {
   const params = useSearchParams();
   const key = params.get('key') || '';
 
-  const [data, setData] = useState<Toolkit | null>(null);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [needsPassword, setNeedsPassword] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [data, setData] = useState<ToolkitData | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!key) {
-      setError('This page requires a personal access link. Please use the link sent to you by the campaign team.');
+      setError('This page requires a personal invite link. Please use the link sent to you by the campaign team.');
       setLoading(false);
       return;
     }
-    fetch(`/api/volunteers/toolkit?key=${encodeURIComponent(key)}`)
+    fetch(`/api/volunteers/activation?key=${encodeURIComponent(key)}`)
       .then(async r => {
         const d = await r.json().catch(() => ({}));
-        if (r.ok) setData(d);
-        else setError(d.message || 'This access link is not valid.');
+        if (r.ok && d.valid) {
+          setName(d.name); setEmail(d.email); setNeedsPassword(d.needsPassword);
+        } else {
+          setError(d.message || 'This link is not valid.');
+        }
       })
       .catch(() => setError('Connection error. Please try again.'))
       .finally(() => setLoading(false));
   }, [key]);
 
-  if (loading) {
-    return <div className="max-w-2xl mx-auto px-4 py-16 text-center text-gray-400">Loading your toolkit…</div>;
-  }
+  const activate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setError('');
+    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    if (password !== confirm) { setError('Passwords do not match.'); return; }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/volunteers/activate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, password }),
+      });
+      const d = await res.json();
+      if (res.ok && d.token) {
+        sessionStorage.setItem(TOKEN_KEY, d.token);
+        setData(d);
+      } else {
+        setError(d.message || 'Could not set your password. Please try again.');
+      }
+    } catch {
+      setError('Connection error. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  if (error) {
+  if (loading) return <div className="max-w-md mx-auto px-4 py-16 text-center text-gray-400">Loading…</div>;
+
+  if (error && !data) {
     return (
       <div className="max-w-lg mx-auto px-4 py-12">
         <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
           <div className="text-4xl mb-2">🔒</div>
-          <h2 className="font-extrabold text-lg mb-1 text-brand-black">Access Link Required</h2>
+          <h2 className="font-extrabold text-lg mb-1 text-brand-black">Invite Link Required</h2>
           <p className="text-gray-600 text-sm">{error}</p>
-          <Link href="/volunteer" className="inline-block mt-5 text-brand-green font-semibold hover:underline text-sm">
-            ← Register as a volunteer
+          <Link href="/volunteer/login" className="inline-block mt-5 text-brand-green font-semibold hover:underline text-sm">
+            Already set a password? Log in →
           </Link>
         </div>
       </div>
     );
   }
 
-  if (!data) return null;
+  // Activated → show toolkit + how to log in next time.
+  if (data) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center">
+          <p className="font-bold text-green-800">✅ Your account is set up!</p>
+          <p className="text-sm text-green-700 mt-1">
+            Next time, log in at <Link href="/volunteer/login" className="underline font-semibold">/volunteer/login</Link> with your email <strong>{email}</strong>.
+          </p>
+        </div>
+        <VolunteerToolkit data={data} />
+      </div>
+    );
+  }
 
-  return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
-      {/* Status */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-widest text-brand-green mb-1">Your Role</p>
-            <p className="font-bold text-lg">{roleLabels[data.role] || data.role}</p>
-          </div>
-          <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-            data.status === 'approved' ? 'bg-green-100 text-green-700'
-            : data.status === 'rejected' ? 'bg-red-100 text-red-700'
-            : 'bg-yellow-100 text-yellow-700'
-          }`}>{data.status}</span>
+  // Already activated (has password) → send to login.
+  if (!needsPassword) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-12">
+        <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-8 text-center">
+          <div className="text-4xl mb-2">👋</div>
+          <h2 className="font-extrabold text-lg mb-1">Welcome back, {name.split(' ')[0]}</h2>
+          <p className="text-gray-600 text-sm mb-5">You&apos;ve already set a password. Please log in with your email.</p>
+          <Link href="/volunteer/login" className="inline-block bg-brand-green hover:bg-brand-greenlt text-white font-bold py-2.5 px-6 rounded-lg text-sm">
+            Go to Login →
+          </Link>
         </div>
       </div>
+    );
+  }
 
-      {/* Not yet approved */}
-      {!data.isApproved && (
-        <div className="bg-brand-yellow/10 border border-brand-yellow rounded-2xl p-6 text-center">
-          <div className="text-4xl mb-2">⏳</div>
-          <h2 className="font-extrabold text-lg mb-1">
-            {data.status === 'rejected' ? 'Application Not Approved' : 'Awaiting Approval'}
-          </h2>
-          <p className="text-gray-600 text-sm">
-            {data.status === 'rejected'
-              ? 'Your volunteer application was not approved. Please contact the campaign team if you think this is a mistake.'
-              : "Your registration is being reviewed. Once approved, your toolkit will unlock on this same link."}
-          </p>
-        </div>
-      )}
-
-      {/* Approved social-media toolkit */}
-      {data.approvedSocial && data.social && (
-        <SocialToolkit social={data.social} />
-      )}
-
-      {/* Approved, non-social */}
-      {data.isApproved && !data.isSocialMedia && (
-        <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
-          <div className="text-4xl mb-2">✅</div>
-          <h2 className="font-extrabold text-lg mb-1">You&apos;re Approved!</h2>
-          <p className="text-gray-600 text-sm">
-            Thank you for volunteering as a {roleLabels[data.role] || data.role}. The campaign team will
-            be in touch with your assignments.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SocialToolkit({ social }: { social: { groupLink: string; shareMessage: string; shareUrl: string } }) {
-  const [copied, setCopied] = useState(false);
-  const shareUrl = social.shareUrl || (typeof window !== 'undefined' ? window.location.origin : '');
-  const shareText = social.shareMessage || 'Join me in supporting the campaign! 🇰🇪';
-  const encodedText = encodeURIComponent(shareText);
-  const encodedUrl = encodeURIComponent(shareUrl);
-
-  const shareTargets = [
-    { label: 'WhatsApp', emoji: '💬', href: `https://wa.me/?text=${encodedText}%20${encodedUrl}`, cls: 'bg-[#25D366] hover:bg-[#1ebe5d] text-white' },
-    { label: 'X (Twitter)', emoji: '𝕏', href: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`, cls: 'bg-black hover:bg-gray-800 text-white' },
-    { label: 'Facebook', emoji: '📘', href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`, cls: 'bg-[#1877F2] hover:bg-[#1466d6] text-white' },
-    { label: 'Telegram', emoji: '✈️', href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`, cls: 'bg-[#26A5E4] hover:bg-[#1e8fca] text-white' },
-  ];
-
-  const nativeShare = () => navigator.share?.({ title: 'Campaign 2027', text: shareText, url: shareUrl });
-  const copyMessage = async () => {
-    try {
-      await navigator.clipboard.writeText(`${shareText} ${shareUrl}`.trim());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch { /* ignore */ }
-  };
-
+  // Set-password form
   return (
-    <>
-      <div className="bg-brand-green rounded-2xl p-6 text-center text-white">
-        <div className="text-4xl mb-2">🎉</div>
-        <h2 className="text-xl font-extrabold mb-1">Welcome to the Social Media Team!</h2>
-        <p className="text-green-100 text-sm mb-5">
-          You&apos;re approved. Join the dedicated group for daily content, updates and coordination.
+    <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8">
+        <h2 className="text-xl font-extrabold mb-1">Set Your Password</h2>
+        <p className="text-gray-500 text-sm mb-5">
+          Welcome, {name.split(' ')[0]}! Create a password for <strong>{email}</strong> to access your volunteer toolkit.
         </p>
-        {social.groupLink ? (
-          <a href={social.groupLink} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 bg-white text-brand-green font-extrabold py-3 px-7 rounded-lg hover:bg-gray-100 transition-colors">
-            💬 Join the Social Media Group
-          </a>
-        ) : (
-          <p className="text-green-100 text-xs italic">The group link will appear here once the team sets it up.</p>
-        )}
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h3 className="font-extrabold text-lg mb-1">Share the Campaign</h3>
-        <p className="text-gray-500 text-sm mb-4">Post to your networks with one tap.</p>
-
-        {shareText && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 mb-4">
-            {shareText}{shareUrl ? ` ${shareUrl}` : ''}
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm mb-4">⚠️ {error}</div>}
+        <form onSubmit={activate} className="space-y-4" noValidate>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Password *</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+              placeholder="At least 8 characters" minLength={8} required
+              className="w-full border-2 border-gray-200 focus:border-brand-yellow rounded-lg px-4 py-3 outline-none" />
           </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          {shareTargets.map(t => (
-            <a key={t.label} href={t.href} target="_blank" rel="noopener noreferrer"
-              className={`flex items-center justify-center gap-2 font-bold py-3 px-4 rounded-lg transition-colors text-sm ${t.cls}`}>
-              <span aria-hidden="true">{t.emoji}</span> {t.label}
-            </a>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-3 mt-3">
-          <button onClick={copyMessage}
-            className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-brand-black font-bold py-3 px-4 rounded-lg transition-colors text-sm">
-            {copied ? '✓ Copied' : '📋 Copy Message'}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm Password *</label>
+            <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
+              placeholder="Re-enter password" required
+              className="w-full border-2 border-gray-200 focus:border-brand-yellow rounded-lg px-4 py-3 outline-none" />
+          </div>
+          <button type="submit" disabled={busy}
+            className={`w-full py-3.5 rounded-xl font-extrabold text-base transition-all ${busy ? 'bg-gray-200 text-gray-400' : 'bg-brand-green hover:bg-brand-greenlt text-white shadow-lg'}`}>
+            {busy ? 'Setting up…' : 'Set Password & Continue'}
           </button>
-          <button onClick={nativeShare}
-            className="flex items-center justify-center gap-2 bg-brand-yellow hover:bg-brand-yellowlt text-brand-black font-bold py-3 px-4 rounded-lg transition-colors text-sm">
-            📤 More…
-          </button>
-        </div>
+        </form>
       </div>
-    </>
+    </div>
   );
 }
 
 export default function VolunteerToolkitPage() {
   return (
     <div className="bg-white text-brand-black">
-      <PageHeader label="Volunteer Portal" title="Your Toolkit" />
-      <Suspense fallback={<div className="max-w-2xl mx-auto px-4 py-16 text-center text-gray-400">Loading…</div>}>
-        <ToolkitInner />
+      <PageHeader label="Volunteer Portal" title="Activate Your Account" />
+      <Suspense fallback={<div className="max-w-md mx-auto px-4 py-16 text-center text-gray-400">Loading…</div>}>
+        <ActivateInner />
       </Suspense>
     </div>
   );

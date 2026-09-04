@@ -321,16 +321,47 @@ function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => 
     setVolunteers(prev => prev.map(v => v.id === id ? { ...v, status } : v));
   };
 
-  const copyToolkitLink = async (v: any) => {
-    if (!v.accessToken) { alert('This volunteer has no access link yet. It is generated on registration.'); return; }
-    const link = `${window.location.origin}/volunteer/toolkit?key=${v.accessToken}`;
+  const buildInviteMessage = (v: any) => {
+    const origin = window.location.origin;
+    const activationLink = `${origin}/volunteer/toolkit?key=${v.accessToken}`;
+    const loginUrl = `${origin}/volunteer/login`;
+    return (
+`Hi ${v.name},
+
+You've been approved as a Campaign 2027 volunteer! 🎉
+
+1) Activate your account and set a password here:
+${activationLink}
+
+2) After that, log in anytime at:
+${loginUrl}
+   Email: ${v.email}
+
+See you inside — together we rise! 🇰🇪`
+    );
+  };
+
+  const copyInvite = async (v: any) => {
+    if (!v.accessToken) { alert('This volunteer has no invite link yet. Use "Reset access" to generate one.'); return; }
+    const msg = buildInviteMessage(v);
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(msg);
       setCopiedId(v.id);
-      setTimeout(() => setCopiedId(null), 2000);
+      setTimeout(() => setCopiedId(null), 2500);
     } catch {
-      // Fallback: show the link so the admin can copy manually.
-      prompt('Copy this toolkit link and send it to the volunteer:', link);
+      prompt('Copy this invite message and send it to the volunteer:', msg);
+    }
+  };
+
+  const resetAccess = async (v: any) => {
+    if (!confirm(`Reset access for ${v.name}? This creates a new invite link and clears their current password.`)) return;
+    const res = await fetch(`/api/admin/volunteers/${v.id}/reset-access`, { method: 'POST', headers });
+    if (res.ok) {
+      const d = await res.json();
+      setVolunteers(prev => prev.map(x => x.id === v.id ? { ...x, accessToken: d.accessToken } : x));
+      alert('New invite link generated. Use "Copy invite" to send it.');
+    } else {
+      alert('Could not reset access. Please try again.');
     }
   };
 
@@ -338,9 +369,10 @@ function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => 
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Volunteers ({volunteers.length})</h2>
       <p className="text-sm text-gray-500 mb-6">
-        After approving a <strong>Social Media</strong> volunteer, use <strong>Copy toolkit link</strong> and
-        send it to them by email/message. That personal link unlocks the group invite &amp; sharing toolkit
-        (configure the group link in the Settings tab).
+        After approving a volunteer, click <strong>Copy invite</strong> and send it to them (email/message).
+        It contains their activation link (to set a password) and login details. Approved
+        <strong> Social Media</strong> volunteers then get the group invite &amp; sharing toolkit
+        (set the group link in Settings). Use <strong>Reset access</strong> if they forget their password.
       </p>
       {volunteers.length === 0 ? (
         <p className="text-gray-500">No volunteers registered yet.</p>
@@ -374,10 +406,15 @@ function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => 
                   <td className="px-4 py-3 whitespace-nowrap">
                     <button onClick={() => updateStatus(v.id, 'approved')} className="text-xs text-green-600 hover:underline mr-2">Approve</button>
                     <button onClick={() => updateStatus(v.id, 'rejected')} className="text-xs text-red-600 hover:underline mr-2">Reject</button>
-                    {v.role === 'social_media' && v.status === 'approved' && (
-                      <button onClick={() => copyToolkitLink(v)} className="text-xs text-brand-green font-semibold hover:underline">
-                        {copiedId === v.id ? '✓ Copied' : '🔗 Copy toolkit link'}
-                      </button>
+                    {v.status === 'approved' && (
+                      <>
+                        <button onClick={() => copyInvite(v)} className="text-xs text-brand-green font-semibold hover:underline mr-2">
+                          {copiedId === v.id ? '✓ Copied invite' : '✉️ Copy invite'}
+                        </button>
+                        <button onClick={() => resetAccess(v)} className="text-xs text-gray-500 hover:underline">
+                          Reset access
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
