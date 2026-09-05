@@ -8,10 +8,11 @@ export interface ToolkitData {
   county: string;
   constituency: string;
   ward: string;
+  pollingStation: { id: string; name: string; ward: string } | null;
   role: string;
   status: string;
   selectedAssignmentId: string;
-  assignments: { id: string; role: string; status: string; county: string; constituency: string; ward: string }[];
+  assignments: { id: string; role: string; status: string; county: string; constituency: string; ward: string; pollingStation: { id: string; name: string; ward: string } | null }[];
   isSocialMedia: boolean;
   isApproved: boolean;
   approvedSocial: boolean;
@@ -120,6 +121,10 @@ export default function VolunteerToolkit({ data }: { data: ToolkitData }) {
 
       {data.role === 'mobilizer' && data.isApproved && data.mobilizer && (
         <MobilizerHub assignment={{ county: data.county, constituency: data.constituency, ward: data.ward }} initialData={data.mobilizer} />
+      )}
+
+      {data.role === 'polling_agent' && data.isApproved && (
+        <PollingAgentHub assignment={{ county: data.county, constituency: data.constituency, ward: data.ward, pollingStation: data.pollingStation }} />
       )}
 
       {data.approvedSocial && data.social && <SocialMediaHub social={data.social} />}
@@ -250,6 +255,41 @@ function RoleGuide({ role }: { role: { icon: string; label: string; nextStep: st
       </div>
     </section>
   );
+}
+
+function PollingAgentHub({ assignment }: { assignment: { county: string; constituency: string; ward: string; pollingStation: { id: string; name: string; ward: string } | null } }) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-blue-200 bg-blue-50">
+      <div className="bg-blue-700 p-6 text-white">
+        <p className="text-xs font-extrabold uppercase tracking-widest text-brand-yellow">Polling agent assignment</p>
+        <h3 className="mt-1 text-2xl font-extrabold">Turbo Constituency election team</h3>
+        <p className="mt-2 text-sm leading-relaxed text-blue-100">Your assignment is restricted to Uasin Gishu County and an official Turbo polling station. Detailed election-day tools will be enabled closer to polling operations.</p>
+      </div>
+      <div className="space-y-4 p-6">
+        {assignment.pollingStation ? (
+          <div className="rounded-xl border border-blue-200 bg-white p-5">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-blue-700">Assigned polling station</p>
+            <h4 className="mt-1 text-xl font-extrabold text-brand-black">{assignment.pollingStation.name}</h4>
+            <p className="mt-1 text-sm text-gray-600">{assignment.pollingStation.ward} Ward · {assignment.constituency} Constituency · {assignment.county} County</p>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-brand-yellow bg-brand-yellow/10 p-5 text-sm text-gray-700">
+            <strong>Station assignment pending:</strong> Your polling station has not yet been assigned. The campaign team will update this dashboard after confirming the official Turbo station list.
+          </div>
+        )}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <PollingStep icon="📚" title="Training" detail="Training schedule and materials will appear here." />
+          <PollingStep icon="📍" title="Check-in" detail="Election-day check-in opens closer to polling day." />
+          <PollingStep icon="🚨" title="Incident reporting" detail="Secure incident escalation will be enabled for active agents." />
+        </div>
+        <p className="text-xs leading-relaxed text-gray-500">Do not publish polling-station operations, incident details, voter information, or election-day documents outside official campaign and legal channels.</p>
+      </div>
+    </section>
+  );
+}
+
+function PollingStep({ icon, title, detail }: { icon: string; title: string; detail: string }) {
+  return <div className="rounded-xl bg-white p-4 shadow-sm"><span className="text-2xl">{icon}</span><p className="mt-2 font-bold text-sm text-brand-black">{title}</p><p className="mt-1 text-xs leading-relaxed text-gray-500">{detail}</p></div>;
 }
 
 function MobilizerHub({ assignment, initialData }: {

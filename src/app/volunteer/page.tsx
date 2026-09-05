@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 type VolunteerRole = 'polling_agent' | 'mobilizer' | 'social_media';
@@ -19,7 +19,10 @@ export default function VolunteerPage() {
     role: '' as VolunteerRole | '',
     experience: '',
     availability: '',
+    pollingStationId: '',
   });
+  const [pollingStations, setPollingStations] = useState<{ id: string; name: string; ward: string }[]>([]);
+  const [stationsLoading, setStationsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,6 +49,16 @@ export default function VolunteerPage() {
       requirements: ['Active social media presence', 'Content creation skills', 'Smartphone'],
     },
   ];
+
+  useEffect(() => {
+    if (formData.role !== 'polling_agent') return;
+    setStationsLoading(true);
+    fetch('/api/volunteers/polling-stations')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setPollingStations(data || []))
+      .catch(() => setPollingStations([]))
+      .finally(() => setStationsLoading(false));
+  }, [formData.role]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,7 +141,11 @@ export default function VolunteerPage() {
             <button
               key={role.id}
               type="button"
-              onClick={() => setFormData({ ...formData, role: role.id })}
+              onClick={() => setFormData({
+                ...formData,
+                role: role.id,
+                ...(role.id === 'polling_agent' ? { county: 'Uasin Gishu', constituency: 'Turbo', ward: '', pollingStationId: '' } : { pollingStationId: '' }),
+              })}
           className={`card text-left transition-all hover:shadow-lg cursor-pointer ${
                 formData.role === role.id
                   ? 'ring-2 ring-brand-yellow border-brand-yellow'
@@ -208,9 +225,11 @@ export default function VolunteerPage() {
                     type="text"
                     required
                     value={formData.county}
+                    disabled={formData.role === 'polling_agent'}
                     onChange={(e) => setFormData({ ...formData, county: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-yellow focus:border-brand-yellow outline-none"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-yellow focus:border-brand-yellow outline-none disabled:bg-gray-100 disabled:text-gray-500"
                   />
+                  {formData.role === 'polling_agent' && <p className="mt-1 text-xs text-gray-400">Polling agents are restricted to Uasin Gishu.</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Constituency</label>
@@ -218,9 +237,11 @@ export default function VolunteerPage() {
                     type="text"
                     required
                     value={formData.constituency}
+                    disabled={formData.role === 'polling_agent'}
                     onChange={(e) => setFormData({ ...formData, constituency: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-yellow focus:border-brand-yellow outline-none"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-yellow focus:border-brand-yellow outline-none disabled:bg-gray-100 disabled:text-gray-500"
                   />
+                  {formData.role === 'polling_agent' && <p className="mt-1 text-xs text-gray-400">Polling agents are restricted to Turbo.</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Ward</label>
@@ -228,11 +249,33 @@ export default function VolunteerPage() {
                     type="text"
                     required
                     value={formData.ward}
+                    disabled={formData.role === 'polling_agent'}
                     onChange={(e) => setFormData({ ...formData, ward: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-yellow focus:border-brand-yellow outline-none"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-brand-yellow focus:border-brand-yellow outline-none disabled:bg-gray-100 disabled:text-gray-500"
+                    placeholder={formData.role === 'polling_agent' ? 'Selected from station' : ''}
                   />
                 </div>
               </div>
+              {formData.role === 'polling_agent' && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+                  <div className="mb-3 flex items-start gap-3"><span className="text-2xl">🗳️</span><div><h3 className="font-extrabold text-brand-black">Turbo polling-station assignment</h3><p className="mt-1 text-sm text-gray-600">Select your official Turbo Constituency polling station. The ward is filled automatically from the station registry.</p></div></div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Official polling station *</label>
+                  <select
+                    required
+                    disabled={stationsLoading || pollingStations.length === 0}
+                    value={formData.pollingStationId}
+                    onChange={e => {
+                      const station = pollingStations.find(item => item.id === e.target.value);
+                      setFormData({ ...formData, pollingStationId: e.target.value, ward: station?.ward || '' });
+                    }}
+                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 outline-none focus:border-brand-yellow disabled:bg-gray-100"
+                  >
+                    <option value="">{stationsLoading ? 'Loading official stations…' : pollingStations.length === 0 ? 'No stations have been configured yet' : 'Select polling station'}</option>
+                    {pollingStations.map(station => <option key={station.id} value={station.id}>{station.name} — {station.ward} Ward</option>)}
+                  </select>
+                  {pollingStations.length === 0 && !stationsLoading && <p className="mt-2 text-xs font-semibold text-red-600">Polling agent registration is temporarily unavailable until an admin adds the official Turbo station list.</p>}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Relevant Experience (optional)

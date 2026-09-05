@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
+type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'pollingStations' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
 
 interface Props {
   token: string;
@@ -44,6 +44,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
     { id: 'pledges',   label: 'Pledges',      icon: '🙌' },
     { id: 'stipends',  label: 'Stipends',     icon: '📶' },
     { id: 'mobilizerReports', label: 'Mobilizer Reports', icon: '📣' },
+    { id: 'pollingStations', label: 'Polling Stations', icon: '🗳️' },
     { id: 'volunteers',label: 'Volunteers',   icon: '👥' },
     { id: 'orders',    label: 'Orders',       icon: '📦' },
     { id: 'products',  label: 'Products',     icon: '🏪' },
@@ -108,6 +109,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
           {activeTab === 'pledges' && <PledgesPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'stipends' && <StipendsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'mobilizerReports' && <MobilizerReportsPanel headers={headers} onLogout={onLogout} />}
+          {activeTab === 'pollingStations' && <PollingStationsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'volunteers' && <VolunteersPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'orders' && <OrdersPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'news' && <NewsPanel headers={headers} onLogout={onLogout} />}
@@ -550,6 +552,73 @@ function MobilizerReportsPanel({ headers, onLogout }: { headers: any; onLogout: 
               </article>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Turbo polling station registry ---
+function PollingStationsPanel({ headers, onLogout }: { headers: any; onLogout: () => void }) {
+  const [stations, setStations] = useState<any[]>([]);
+  const [name, setName] = useState('');
+  const [ward, setWard] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const loadStations = () => {
+    fetch('/api/admin/polling-stations?includeInactive=true', { headers })
+      .then(res => { if (res.status === 401) { onLogout(); return []; } return res.json(); })
+      .then(data => setStations(data || []))
+      .catch(() => setStations([]));
+  };
+
+  useEffect(() => { loadStations(); }, []);
+
+  const addStation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !ward.trim() || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/polling-stations', { method: 'POST', headers, body: JSON.stringify({ name: name.trim(), ward: ward.trim() }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(data.message || 'Could not add polling station.'); return; }
+      setStations(prev => [...prev, data].sort((a, b) => a.ward.localeCompare(b.ward) || a.name.localeCompare(b.name)));
+      setName(''); setWard('');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setActive = async (station: any, active: boolean) => {
+    const label = active ? 'activate' : 'deactivate';
+    if (!confirm(`${label[0].toUpperCase() + label.slice(1)} ${station.name}?`)) return;
+    const res = await fetch(`/api/admin/polling-stations/${station.id}`, { method: 'PATCH', headers, body: JSON.stringify({ active }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(data.message || 'Could not update polling station.'); return; }
+    setStations(prev => prev.map(item => item.id === station.id ? data : item));
+  };
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Turbo polling stations</h2>
+        <p className="mt-1 text-sm text-gray-500">Only active stations in this registry can be selected by Polling Agent applicants. County and constituency are fixed to Uasin Gishu / Turbo.</p>
+      </div>
+      <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-5">
+        <h3 className="font-extrabold text-brand-black">Add official polling station</h3>
+        <p className="mt-1 text-xs text-gray-600">Use the verified official station name and ward. Do not add unverified or temporary stations.</p>
+        <form onSubmit={addStation} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Official station name" className="rounded-lg border px-3 py-2 text-sm" />
+          <input value={ward} onChange={e => setWard(e.target.value)} placeholder="Ward" className="rounded-lg border px-3 py-2 text-sm" />
+          <button disabled={saving} className="rounded-lg bg-brand-green px-5 py-2 text-sm font-bold text-white disabled:opacity-50">{saving ? 'Adding…' : 'Add station'}</button>
+        </form>
+      </section>
+      {stations.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No polling stations are configured yet. Polling Agent registration will remain unavailable until you add the official Turbo station list.</div> : (
+        <div className="overflow-x-auto rounded-xl border bg-white">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-gray-50"><tr><th className="px-4 py-3 text-left">Station</th><th className="px-4 py-3 text-left">Ward</th><th className="px-4 py-3 text-left">County / Constituency</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-left">Action</th></tr></thead>
+            <tbody>{stations.map(station => <tr key={station.id} className="border-b"><td className="px-4 py-3 font-medium">{station.name}</td><td className="px-4 py-3">{station.ward}</td><td className="px-4 py-3 text-xs">{station.county} / {station.constituency}</td><td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${station.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>{station.active ? 'active' : 'inactive'}</span></td><td className="px-4 py-3"><button onClick={() => setActive(station, !station.active)} className="text-xs font-semibold text-brand-green hover:underline">{station.active ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody>
+          </table>
         </div>
       )}
     </div>
