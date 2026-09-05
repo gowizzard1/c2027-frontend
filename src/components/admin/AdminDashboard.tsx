@@ -605,6 +605,14 @@ function PollingStationsPanel({ headers, onLogout }: { headers: any; onLogout: (
     setStations(prev => prev.map(item => item.id === station.id ? data : item));
   };
 
+  const reviewProposal = async (station: any, action: 'approve' | 'reject') => {
+    if (!confirm(`${action === 'approve' ? 'Approve' : 'Reject'} proposed station ${station.name}?`)) return;
+    const res = await fetch(`/api/admin/polling-stations/${station.id}/review`, { method: 'POST', headers, body: JSON.stringify({ action }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(data.message || 'Could not review station proposal.'); return; }
+    setStations(prev => prev.map(item => item.id === station.id ? data : item));
+  };
+
   return (
     <div>
       <div className="mb-6">
@@ -626,8 +634,8 @@ function PollingStationsPanel({ headers, onLogout }: { headers: any; onLogout: (
       {stations.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No polling stations are configured yet. Polling Agent registration will remain unavailable until you add the official Turbo station list.</div> : (
         <div className="overflow-x-auto rounded-xl border bg-white">
           <table className="w-full text-sm">
-            <thead className="border-b bg-gray-50"><tr><th className="px-4 py-3 text-left">Station</th><th className="px-4 py-3 text-left">Ward</th><th className="px-4 py-3 text-left">County / Constituency</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-left">Action</th></tr></thead>
-            <tbody>{stations.map(station => <tr key={station.id} className={`border-b ${station.validWard === false ? 'bg-red-50' : ''}`}><td className="px-4 py-3 font-medium">{station.name}{station.validWard === false && <p className="mt-1 text-xs font-semibold text-red-600">Invalid ward: not selectable by applicants</p>}</td><td className="px-4 py-3">{station.ward}</td><td className="px-4 py-3 text-xs">{station.county} / {station.constituency}</td><td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${station.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>{station.active ? 'active' : 'inactive'}</span></td><td className="px-4 py-3"><button onClick={() => setActive(station, !station.active)} className="text-xs font-semibold text-brand-green hover:underline">{station.active ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody>
+            <thead className="border-b bg-gray-50"><tr><th className="px-4 py-3 text-left">Station</th><th className="px-4 py-3 text-left">Ward</th><th className="px-4 py-3 text-left">County / Constituency</th><th className="px-4 py-3 text-left">Registry status</th><th className="px-4 py-3 text-left">Action</th></tr></thead>
+            <tbody>{stations.map(station => <tr key={station.id} className={`border-b ${station.validWard === false ? 'bg-red-50' : station.approvalStatus === 'pending' ? 'bg-yellow-50' : ''}`}><td className="px-4 py-3 font-medium">{station.name}{station.validWard === false && <p className="mt-1 text-xs font-semibold text-red-600">Invalid ward: not selectable by applicants</p>}{station.approvalStatus === 'pending' && <p className="mt-1 text-xs text-yellow-700">Proposed by: {station.proposedByEmail || 'applicant'}</p>}</td><td className="px-4 py-3">{station.ward}</td><td className="px-4 py-3 text-xs">{station.county} / {station.constituency}</td><td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${station.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' : station.approvalStatus === 'rejected' ? 'bg-red-100 text-red-700' : station.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>{station.approvalStatus === 'pending' ? 'pending approval' : station.approvalStatus === 'rejected' ? 'rejected' : station.active ? 'active' : 'inactive'}</span></td><td className="px-4 py-3">{station.approvalStatus === 'pending' ? <div className="flex gap-2"><button onClick={() => reviewProposal(station, 'approve')} className="text-xs font-semibold text-green-700 hover:underline">Approve</button><button onClick={() => reviewProposal(station, 'reject')} className="text-xs text-red-600 hover:underline">Reject</button></div> : station.approvalStatus === 'rejected' ? <button onClick={() => reviewProposal(station, 'approve')} className="text-xs font-semibold text-brand-green hover:underline">Approve</button> : <button onClick={() => setActive(station, !station.active)} className="text-xs font-semibold text-brand-green hover:underline">{station.active ? 'Deactivate' : 'Activate'}</button>}</td></tr>)}</tbody>
           </table>
         </div>
       )}

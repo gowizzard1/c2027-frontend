@@ -20,7 +20,10 @@ export default function VolunteerPage() {
     experience: '',
     availability: '',
     pollingStationId: '',
+    proposedPollingStationName: '',
+    proposedPollingStationWard: '',
   });
+  const [proposeStation, setProposeStation] = useState(false);
   const [pollingStations, setPollingStations] = useState<{ id: string; name: string; ward: string }[]>([]);
   const [pollingConfig, setPollingConfig] = useState({ county: 'Uasin Gishu', constituency: 'Turbo', wards: [] as string[] });
   const [stationsLoading, setStationsLoading] = useState(false);
@@ -150,7 +153,7 @@ export default function VolunteerPage() {
               onClick={() => setFormData({
                 ...formData,
                 role: role.id,
-                ...(role.id === 'polling_agent' ? { county: pollingConfig.county, constituency: pollingConfig.constituency, ward: '', pollingStationId: '' } : { pollingStationId: '' }),
+                ...(role.id === 'polling_agent' ? { county: pollingConfig.county, constituency: pollingConfig.constituency, ward: '', pollingStationId: '', proposedPollingStationName: '', proposedPollingStationWard: '' } : { pollingStationId: '', proposedPollingStationName: '', proposedPollingStationWard: '' }),
               })}
           className={`card text-left transition-all hover:shadow-lg cursor-pointer ${
                 formData.role === role.id
@@ -264,22 +267,36 @@ export default function VolunteerPage() {
               </div>
               {formData.role === 'polling_agent' && (
                 <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
-                  <div className="mb-3 flex items-start gap-3"><span className="text-2xl">🗳️</span><div><h3 className="font-extrabold text-brand-black">Turbo polling-station assignment</h3><p className="mt-1 text-sm text-gray-600">Select your official Turbo Constituency polling station. The ward is filled automatically from the station registry.</p></div></div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Official polling station *</label>
-                  <select
-                    required
-                    disabled={stationsLoading || pollingStations.length === 0}
-                    value={formData.pollingStationId}
-                    onChange={e => {
-                      const station = pollingStations.find(item => item.id === e.target.value);
-                      setFormData({ ...formData, pollingStationId: e.target.value, ward: station?.ward || '' });
-                    }}
-                    className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 outline-none focus:border-brand-yellow disabled:bg-gray-100"
-                  >
-                    <option value="">{stationsLoading ? 'Loading official stations…' : pollingStations.length === 0 ? 'No stations have been configured yet' : 'Select polling station'}</option>
-                    {pollingStations.map(station => <option key={station.id} value={station.id}>{station.name} — {station.ward} Ward</option>)}
-                  </select>
-                  {pollingStations.length === 0 && !stationsLoading && <p className="mt-2 text-xs font-semibold text-red-600">Polling agent registration is temporarily unavailable until an admin adds the official Turbo station list.</p>}
+                  <div className="mb-3 flex items-start gap-3"><span className="text-2xl">🗳️</span><div><h3 className="font-extrabold text-brand-black">Turbo polling-station assignment</h3><p className="mt-1 text-sm text-gray-600">Select an approved official station, or propose a missing station under one of the official Turbo wards. Proposed stations must be approved by admin before they become active.</p></div></div>
+                  {!proposeStation ? (
+                    <>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">Official polling station *</label>
+                      <select
+                        required={!proposeStation}
+                        disabled={stationsLoading || pollingStations.length === 0}
+                        value={formData.pollingStationId}
+                        onChange={e => {
+                          const station = pollingStations.find(item => item.id === e.target.value);
+                          setFormData({ ...formData, pollingStationId: e.target.value, ward: station?.ward || '', proposedPollingStationName: '', proposedPollingStationWard: '' });
+                        }}
+                        className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 outline-none focus:border-brand-yellow disabled:bg-gray-100"
+                      >
+                        <option value="">{stationsLoading ? 'Loading official stations…' : pollingStations.length === 0 ? 'No active stations listed yet' : 'Select polling station'}</option>
+                        {pollingStations.map(station => <option key={station.id} value={station.id}>{station.name} — {station.ward} Ward</option>)}
+                      </select>
+                      <button type="button" onClick={() => { setProposeStation(true); setFormData({ ...formData, pollingStationId: '', ward: '', proposedPollingStationName: '', proposedPollingStationWard: '' }); }} className="mt-3 text-sm font-bold text-brand-green hover:underline">Station not listed? Propose it for admin approval →</button>
+                    </>
+                  ) : (
+                    <div className="space-y-3 rounded-lg border border-brand-yellow bg-white p-4">
+                      <div className="flex items-center justify-between gap-3"><p className="font-bold text-sm text-brand-black">Propose missing polling station</p><button type="button" onClick={() => { setProposeStation(false); setFormData({ ...formData, proposedPollingStationName: '', proposedPollingStationWard: '', ward: '' }); }} className="text-xs font-semibold text-gray-500 hover:underline">Use listed station instead</button></div>
+                      <input required={proposeStation} value={formData.proposedPollingStationName} onChange={e => setFormData({ ...formData, proposedPollingStationName: e.target.value })} placeholder="Official station name" className="w-full rounded-lg border-2 border-gray-200 px-4 py-3 outline-none focus:border-brand-yellow" />
+                      <select required={proposeStation} value={formData.proposedPollingStationWard} onChange={e => setFormData({ ...formData, proposedPollingStationWard: e.target.value, ward: e.target.value })} className="w-full rounded-lg border-2 border-gray-200 px-4 py-3 outline-none focus:border-brand-yellow">
+                        <option value="">Select official Turbo ward</option>
+                        {pollingConfig.wards.map(item => <option key={item} value={item}>{item}</option>)}
+                      </select>
+                      <p className="text-xs text-gray-500">Your polling-agent application and proposed station will remain pending until an admin reviews both.</p>
+                    </div>
+                  )}
                 </div>
               )}
               <div>
