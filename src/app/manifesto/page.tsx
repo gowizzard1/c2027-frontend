@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 
@@ -11,6 +12,7 @@ export default function ManifestoPage() {
   const [loading, setLoading]       = useState(true);
   const [activePillar, setActive]   = useState('All');
   const [expanded, setExpanded]     = useState<string | null>(null);
+  const [view, setView]             = useState<'browse' | 'document'>('browse');
 
   useEffect(() => {
     fetch('/api/content/manifesto').then(r => r.ok ? r.json() : []).then(setItems).catch(() => {}).finally(() => setLoading(false));
@@ -29,9 +31,20 @@ export default function ManifestoPage() {
         <div className="flex flex-wrap gap-3">
           <Link href="/volunteer" className="bg-brand-yellow hover:bg-brand-yellowlt text-brand-black font-extrabold py-2 px-6 rounded-lg text-sm transition-colors">Join as Volunteer</Link>
           <Link href="/donate" className="bg-brand-green hover:bg-brand-greenlt text-white font-bold py-2 px-6 rounded-lg text-sm transition-colors">💚 Support Campaign</Link>
+          <button onClick={() => setView(view === 'browse' ? 'document' : 'browse')} className="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold py-2 px-6 rounded-lg text-sm transition-colors">
+            {view === 'browse' ? '📄 Read as Document' : '↩ Browse Manifesto'}
+          </button>
+          {view === 'document' && (
+            <button onClick={() => window.print()} className="bg-white text-brand-black hover:bg-gray-100 font-extrabold py-2 px-6 rounded-lg text-sm transition-colors">
+              🖨️ Print / Save PDF
+            </button>
+          )}
         </div>
       </PageHeader>
 
+      {view === 'document' ? (
+        <ManifestoDocument items={items} loading={loading} />
+      ) : (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Pillar Filters */}
         {pillars.length > 1 && (
@@ -109,6 +122,65 @@ export default function ManifestoPage() {
           </div>
         )}
       </div>
+      )}
     </div>
+  );
+}
+
+function ManifestoDocument({ items, loading }: { items: ManifestoItem[]; loading: boolean }) {
+  return (
+    <section className="manifesto-document max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
+      <article className="overflow-hidden rounded-sm border border-gray-200 bg-white shadow-xl print:shadow-none print:border-0">
+        <header className="relative overflow-hidden bg-brand-black px-6 py-10 text-center text-white sm:px-12 sm:py-14 print:py-10">
+          <div className="absolute inset-x-0 top-0 h-1 bg-brand-yellow" />
+          <Image src="/logo.png" alt="IKM — Kirgit, Kipkeleny Tulwo, The Voice of Turbo" width={220} height={220} className="mx-auto h-36 w-36 object-contain sm:h-44 sm:w-44" />
+          <p className="mt-5 text-xs font-extrabold uppercase tracking-[0.25em] text-brand-yellow">Development Agenda</p>
+          <h1 className="mt-3 text-3xl font-extrabold leading-tight sm:text-4xl">A Practical Agenda for Turbo</h1>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-gray-300 sm:text-base">A development platform focused on education, opportunity, infrastructure, agriculture, healthcare and accountable representation.</p>
+          <p className="mt-6 text-xs font-semibold uppercase tracking-widest text-gray-400">Manifesto document · Turbo Constituency</p>
+        </header>
+
+        <div className="px-6 py-8 sm:px-12 sm:py-12 print:px-10 print:py-8">
+          <section className="border-b border-gray-200 pb-8">
+            <p className="text-sm leading-relaxed text-gray-700">This manifesto sets out practical priorities for a more connected, accountable and empowered Turbo. It is a public commitment to listen, report progress, and work with residents, institutions and partners to deliver measurable results.</p>
+          </section>
+
+          {loading ? (
+            <div className="space-y-5 py-10"><div className="h-8 w-1/2 animate-pulse rounded bg-gray-100" /><div className="h-24 animate-pulse rounded bg-gray-100" /><div className="h-24 animate-pulse rounded bg-gray-100" /></div>
+          ) : items.length === 0 ? (
+            <div className="py-14 text-center text-gray-500">The manifesto document is being prepared.</div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {items.map((item, index) => {
+                const points = (item.details || '').split('\n').map(point => point.trim()).filter(Boolean);
+                return (
+                  <section key={item.id} className="py-8 break-inside-avoid print:py-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-yellow font-extrabold text-brand-black">{index + 1}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2"><span className="text-2xl" aria-hidden="true">{item.icon}</span><span className="text-xs font-extrabold uppercase tracking-widest text-brand-green">{item.pillar}</span></div>
+                        <h2 className="mt-2 text-xl font-extrabold leading-tight text-brand-black sm:text-2xl">{item.title}</h2>
+                        <p className="mt-3 text-sm leading-relaxed text-gray-700 sm:text-base">{item.description}</p>
+                        {points.length > 0 && (
+                          <ul className="mt-4 space-y-2 text-sm leading-relaxed text-gray-700 sm:text-base">
+                            {points.map((point, pointIndex) => <li key={pointIndex} className="flex gap-3"><span className="mt-1 font-bold text-brand-green">•</span><span>{point}</span></li>)}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          )}
+
+          <footer className="mt-10 border-t border-gray-200 pt-7 text-center print:mt-6">
+            <p className="font-extrabold text-brand-black">Kirgit, Kipkeleny Tulwo</p>
+            <p className="mt-1 text-sm text-gray-500">The Voice of Turbo</p>
+            <p className="mt-4 text-xs text-gray-400">Published by the IKM Campaign · www.maiywa.site</p>
+          </footer>
+        </div>
+      </article>
+    </section>
   );
 }
