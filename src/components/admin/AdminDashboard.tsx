@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-type Tab = 'overview' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
+type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
 
 interface Props {
   token: string;
@@ -36,6 +36,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'overview',  label: 'Overview',     icon: '📊' },
+    { id: 'analytics', label: 'Site Analytics',icon: '📈' },
     { id: 'manifesto', label: 'Manifesto',    icon: '📋' },
     { id: 'biography', label: 'Biography',    icon: '👤' },
     { id: 'news',      label: 'News & Events',icon: '📰' },
@@ -98,6 +99,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
         {/* Main Content */}
         <main className="flex-1 p-6">
           {activeTab === 'overview' && <OverviewPanel stats={stats} />}
+          {activeTab === 'analytics' && <AnalyticsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'manifesto' && <ManifestoPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'biography' && <BiographyPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'donations' && <DonationsPanel headers={headers} onLogout={onLogout} />}
@@ -155,6 +157,98 @@ function OverviewPanel({ stats }: { stats: Stats | null }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// --- First-party Site Analytics Panel ---
+function AnalyticsPanel({ headers, onLogout }: { headers: any; onLogout: () => void }) {
+  const [days, setDays] = useState(30);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/admin/analytics?days=${days}`, { headers })
+      .then(async response => {
+        if (response.status === 401) { onLogout(); return null; }
+        return response.ok ? response.json() : null;
+      })
+      .then(result => { if (result) setData(result); })
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [days]);
+
+  if (loading) return <div className="text-gray-500">Loading analytics…</div>;
+  if (!data) return <div className="text-gray-500">Analytics could not be loaded.</div>;
+
+  const maxDaily = Math.max(1, ...data.daily.map((day: any) => day.pageviews));
+  const cards = [
+    { label: 'Page views', value: data.totalPageviews, icon: '👁️', color: 'bg-blue-50 text-blue-800' },
+    { label: 'Unique visitors', value: data.uniqueVisitors, icon: '👥', color: 'bg-green-50 text-green-800' },
+    { label: 'Views today', value: data.todayPageviews, icon: '📄', color: 'bg-yellow-50 text-yellow-800' },
+    { label: 'Visitors today', value: data.todayVisitors, icon: '✨', color: 'bg-purple-50 text-purple-800' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Site Analytics</h2>
+          <p className="mt-1 text-sm text-gray-500">Anonymous first-party traffic data for the public campaign site. No IP addresses are stored.</p>
+        </div>
+        <div className="flex rounded-lg border bg-white p-1 text-sm font-semibold">
+          {[7, 30, 90].map(value => (
+            <button key={value} onClick={() => setDays(value)} className={`rounded-md px-3 py-2 transition-colors ${days === value ? 'bg-brand-green text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+              {value} days
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map(card => (
+          <div key={card.label} className={`rounded-xl p-5 ${card.color}`}>
+            <div className="text-2xl">{card.icon}</div>
+            <p className="mt-2 text-2xl font-extrabold">{card.value.toLocaleString()}</p>
+            <p className="text-sm font-semibold opacity-75">{card.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <section className="rounded-xl border bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-baseline justify-between"><h3 className="font-bold text-gray-900">Daily page views</h3><span className="text-xs text-gray-400">Last {data.days} days</span></div>
+        <div className="flex h-44 items-end gap-1 sm:gap-2" aria-label="Daily page view chart">
+          {data.daily.map((day: any) => {
+            const height = Math.max(day.pageviews ? 6 : 2, Math.round((day.pageviews / maxDaily) * 100));
+            return (
+              <div key={day.date} className="group relative flex min-w-0 flex-1 flex-col justify-end" title={`${day.date}: ${day.pageviews} views, ${day.visitors} visitors`}>
+                <div className="rounded-t bg-brand-green transition-colors group-hover:bg-brand-yellow" style={{ height: `${height}%` }} />
+                {data.days <= 30 && <span className="mt-2 hidden text-center text-[9px] text-gray-400 sm:block">{day.date.slice(8)}</span>}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <MetricList title="Top pages" icon="📄" empty="No page views recorded yet." items={data.topPages.map((item: any) => ({ label: item.path, value: `${item.pageviews} views · ${item.visitors} visitors` }))} />
+        <MetricList title="Traffic sources" icon="🔗" empty="No referrer data recorded yet." items={data.referrers.map((item: any) => ({ label: item.label, value: `${item.count} visits` }))} />
+        <MetricList title="Devices" icon="📱" empty="No device data recorded yet." items={data.devices.map((item: any) => ({ label: item.label, value: `${item.count} visits` }))} />
+      </div>
+    </div>
+  );
+}
+
+function MetricList({ title, icon, empty, items }: { title: string; icon: string; empty: string; items: { label: string; value: string }[] }) {
+  return (
+    <section className="rounded-xl border bg-white p-5 shadow-sm">
+      <h3 className="mb-4 font-bold text-gray-900">{icon} {title}</h3>
+      {items.length === 0 ? <p className="text-sm text-gray-400">{empty}</p> : (
+        <ul className="space-y-3">
+          {items.map(item => <li key={item.label} className="flex items-center justify-between gap-3 text-sm"><span className="truncate font-medium text-gray-700">{item.label}</span><span className="shrink-0 text-xs text-gray-500">{item.value}</span></li>)}
+        </ul>
+      )}
+    </section>
   );
 }
 
