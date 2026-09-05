@@ -563,6 +563,7 @@ function PollingStationsPanel({ headers, onLogout }: { headers: any; onLogout: (
   const [stations, setStations] = useState<any[]>([]);
   const [name, setName] = useState('');
   const [ward, setWard] = useState('');
+  const [config, setConfig] = useState({ county: 'Uasin Gishu', constituency: 'Turbo', wards: [] as string[] });
   const [saving, setSaving] = useState(false);
 
   const loadStations = () => {
@@ -572,7 +573,13 @@ function PollingStationsPanel({ headers, onLogout }: { headers: any; onLogout: (
       .catch(() => setStations([]));
   };
 
-  useEffect(() => { loadStations(); }, []);
+  useEffect(() => {
+    loadStations();
+    fetch('/api/admin/polling-station-config', { headers })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data) setConfig(data); })
+      .catch(() => {});
+  }, []);
 
   const addStation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -602,14 +609,17 @@ function PollingStationsPanel({ headers, onLogout }: { headers: any; onLogout: (
     <div>
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Turbo polling stations</h2>
-        <p className="mt-1 text-sm text-gray-500">Only active stations in this registry can be selected by Polling Agent applicants. County and constituency are fixed to Uasin Gishu / Turbo.</p>
+        <p className="mt-1 text-sm text-gray-500">Only active stations in this registry can be selected by Polling Agent applicants. County and constituency are fixed to {config.county} / {config.constituency}. Approved wards: {config.wards.join(', ')}.</p>
       </div>
       <section className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-5">
         <h3 className="font-extrabold text-brand-black">Add official polling station</h3>
         <p className="mt-1 text-xs text-gray-600">Use the verified official station name and ward. Do not add unverified or temporary stations.</p>
         <form onSubmit={addStation} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Official station name" className="rounded-lg border px-3 py-2 text-sm" />
-          <input value={ward} onChange={e => setWard(e.target.value)} placeholder="Ward" className="rounded-lg border px-3 py-2 text-sm" />
+          <select value={ward} onChange={e => setWard(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
+            <option value="">Select official ward</option>
+            {config.wards.map(item => <option key={item} value={item}>{item}</option>)}
+          </select>
           <button disabled={saving} className="rounded-lg bg-brand-green px-5 py-2 text-sm font-bold text-white disabled:opacity-50">{saving ? 'Adding…' : 'Add station'}</button>
         </form>
       </section>
@@ -617,7 +627,7 @@ function PollingStationsPanel({ headers, onLogout }: { headers: any; onLogout: (
         <div className="overflow-x-auto rounded-xl border bg-white">
           <table className="w-full text-sm">
             <thead className="border-b bg-gray-50"><tr><th className="px-4 py-3 text-left">Station</th><th className="px-4 py-3 text-left">Ward</th><th className="px-4 py-3 text-left">County / Constituency</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-left">Action</th></tr></thead>
-            <tbody>{stations.map(station => <tr key={station.id} className="border-b"><td className="px-4 py-3 font-medium">{station.name}</td><td className="px-4 py-3">{station.ward}</td><td className="px-4 py-3 text-xs">{station.county} / {station.constituency}</td><td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${station.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>{station.active ? 'active' : 'inactive'}</span></td><td className="px-4 py-3"><button onClick={() => setActive(station, !station.active)} className="text-xs font-semibold text-brand-green hover:underline">{station.active ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody>
+            <tbody>{stations.map(station => <tr key={station.id} className={`border-b ${station.validWard === false ? 'bg-red-50' : ''}`}><td className="px-4 py-3 font-medium">{station.name}{station.validWard === false && <p className="mt-1 text-xs font-semibold text-red-600">Invalid ward: not selectable by applicants</p>}</td><td className="px-4 py-3">{station.ward}</td><td className="px-4 py-3 text-xs">{station.county} / {station.constituency}</td><td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${station.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>{station.active ? 'active' : 'inactive'}</span></td><td className="px-4 py-3"><button onClick={() => setActive(station, !station.active)} className="text-xs font-semibold text-brand-green hover:underline">{station.active ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody>
           </table>
         </div>
       )}

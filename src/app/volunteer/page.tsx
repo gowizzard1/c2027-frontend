@@ -22,6 +22,7 @@ export default function VolunteerPage() {
     pollingStationId: '',
   });
   const [pollingStations, setPollingStations] = useState<{ id: string; name: string; ward: string }[]>([]);
+  const [pollingConfig, setPollingConfig] = useState({ county: 'Uasin Gishu', constituency: 'Turbo', wards: [] as string[] });
   const [stationsLoading, setStationsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,9 +54,14 @@ export default function VolunteerPage() {
   useEffect(() => {
     if (formData.role !== 'polling_agent') return;
     setStationsLoading(true);
-    fetch('/api/volunteers/polling-stations')
-      .then(res => res.ok ? res.json() : [])
-      .then(data => setPollingStations(data || []))
+    Promise.all([
+      fetch('/api/volunteers/polling-stations').then(res => res.ok ? res.json() : []),
+      fetch('/api/volunteers/polling-config').then(res => res.ok ? res.json() : null),
+    ])
+      .then(([stations, config]) => {
+        setPollingStations(stations || []);
+        if (config) setPollingConfig(config);
+      })
       .catch(() => setPollingStations([]))
       .finally(() => setStationsLoading(false));
   }, [formData.role]);
@@ -144,7 +150,7 @@ export default function VolunteerPage() {
               onClick={() => setFormData({
                 ...formData,
                 role: role.id,
-                ...(role.id === 'polling_agent' ? { county: 'Uasin Gishu', constituency: 'Turbo', ward: '', pollingStationId: '' } : { pollingStationId: '' }),
+                ...(role.id === 'polling_agent' ? { county: pollingConfig.county, constituency: pollingConfig.constituency, ward: '', pollingStationId: '' } : { pollingStationId: '' }),
               })}
           className={`card text-left transition-all hover:shadow-lg cursor-pointer ${
                 formData.role === role.id
