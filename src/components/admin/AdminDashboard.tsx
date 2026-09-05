@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
+type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
 
 interface Props {
   token: string;
@@ -43,6 +43,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
     { id: 'donations', label: 'Donations',    icon: '💰' },
     { id: 'pledges',   label: 'Pledges',      icon: '🙌' },
     { id: 'stipends',  label: 'Stipends',     icon: '📶' },
+    { id: 'mobilizerReports', label: 'Mobilizer Reports', icon: '📣' },
     { id: 'volunteers',label: 'Volunteers',   icon: '👥' },
     { id: 'orders',    label: 'Orders',       icon: '📦' },
     { id: 'products',  label: 'Products',     icon: '🏪' },
@@ -106,6 +107,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
           {activeTab === 'donations' && <DonationsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'pledges' && <PledgesPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'stipends' && <StipendsPanel headers={headers} onLogout={onLogout} />}
+          {activeTab === 'mobilizerReports' && <MobilizerReportsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'volunteers' && <VolunteersPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'orders' && <OrdersPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'news' && <NewsPanel headers={headers} onLogout={onLogout} />}
@@ -476,6 +478,77 @@ function StipendsPanel({ headers, onLogout }: { headers: any; onLogout: () => vo
               })}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Mobilizer weekly reports ---
+function MobilizerReportsPanel({ headers, onLogout }: { headers: any; onLogout: () => void }) {
+  const [reports, setReports] = useState<any[]>([]);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/mobilizer-reports', { headers })
+      .then(res => { if (res.status === 401) { onLogout(); return []; } return res.json(); })
+      .then(data => setReports(data || []))
+      .catch(() => setReports([]));
+  }, []);
+
+  const updateReport = async (report: any, action: 'review' | 'action') => {
+    const adminNote = prompt(action === 'action' ? 'Optional: add follow-up/action note:' : 'Optional: add review note:', report.adminNote || '') || '';
+    setUpdatingId(report.id);
+    try {
+      const res = await fetch(`/api/admin/mobilizer-reports/${report.id}`, {
+        method: 'PATCH', headers, body: JSON.stringify({ action, adminNote }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(data.message || 'Could not update report.'); return; }
+      setReports(prev => prev.map(item => item.id === report.id ? { ...item, ...data } : item));
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const statusStyle = (status: string) => status === 'actioned' ? 'bg-green-100 text-green-700' : status === 'reviewed' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700';
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Mobilizer field reports</h2>
+        <p className="mt-1 text-sm text-gray-500">Aggregate weekly activity only. Reports intentionally exclude named voter lists, contact details, and individual political preference data.</p>
+      </div>
+      {reports.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No mobilizer reports submitted yet.</div> : (
+        <div className="space-y-4">
+          {reports.map(report => {
+            const volunteer = report.volunteer;
+            const busy = updatingId === report.id;
+            return (
+              <article key={report.id} className="rounded-xl border bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="font-bold text-gray-900">{volunteer?.name || 'Deleted volunteer'}</p>
+                    <p className="mt-1 text-xs text-gray-500">{volunteer ? `${volunteer.ward}, ${volunteer.constituency} · ${volunteer.phone}` : 'Volunteer record unavailable'}</p>
+                  </div>
+                  <div className="flex items-center gap-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${statusStyle(report.status)}`}>{report.status}</span><span className="text-xs text-gray-400">Week of {new Date(report.periodStart).toLocaleDateString()}</span></div>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  <div className="rounded-lg bg-purple-50 p-3 text-center"><p className="text-xl font-extrabold text-purple-700">{report.peopleReached}</p><p className="text-[11px] font-semibold text-gray-500">People reached</p></div>
+                  <div className="rounded-lg bg-purple-50 p-3 text-center"><p className="text-xl font-extrabold text-purple-700">{report.meetingsHeld}</p><p className="text-[11px] font-semibold text-gray-500">Meetings held</p></div>
+                  <div className="rounded-lg bg-purple-50 p-3 text-center"><p className="text-xl font-extrabold text-purple-700">{report.newVolunteers}</p><p className="text-[11px] font-semibold text-gray-500">Referrals</p></div>
+                </div>
+                {report.keyIssues && <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm"><strong>Key local issues:</strong> {report.keyIssues}</div>}
+                {report.notes && <div className="mt-3 rounded-lg bg-gray-50 p-3 text-sm"><strong>Field notes:</strong> {report.notes}</div>}
+                {report.adminNote && <div className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-900"><strong>Admin follow-up:</strong> {report.adminNote}</div>}
+                <div className="mt-4 flex flex-wrap gap-3 text-sm">
+                  {report.status === 'submitted' && <button disabled={busy} onClick={() => updateReport(report, 'review')} className="font-semibold text-blue-700 hover:underline disabled:opacity-50">Mark reviewed</button>}
+                  {report.status !== 'actioned' && <button disabled={busy} onClick={() => updateReport(report, 'action')} className="font-semibold text-green-700 hover:underline disabled:opacity-50">Mark actioned</button>}
+                  {report.status === 'actioned' && <span className="text-gray-400">Follow-up completed</span>}
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1084,6 +1157,11 @@ function SettingsPanel({ headers, onLogout }: { headers: any; onLogout: () => vo
               <label className="block text-sm font-medium text-gray-700 mb-1">Social Media Group Link</label>
               <input value={settings.socialGroupLink || ''} onChange={e => setSettings({ ...settings, socialGroupLink: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="https://chat.whatsapp.com/... (dedicated social team group)" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mobilizer Coordination Group Link</label>
+              <input value={settings.mobilizerGroupLink || ''} onChange={e => setSettings({ ...settings, mobilizerGroupLink: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="https://chat.whatsapp.com/... (mobilizer coordination group)" />
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <div>

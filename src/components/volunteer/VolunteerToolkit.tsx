@@ -5,6 +5,9 @@ import { useState } from 'react';
 export interface ToolkitData {
   name: string;
   email: string;
+  county: string;
+  constituency: string;
+  ward: string;
   role: string;
   status: string;
   isSocialMedia: boolean;
@@ -19,6 +22,25 @@ export interface ToolkitData {
     repeatCooldownDays: number;
     latestRequest: { id: string; status: string; requestedAt: string; approvedAt?: string | null; paidAt?: string | null } | null;
   };
+  mobilizer: {
+    groupLink: string;
+    periodStart: string;
+    currentReport: MobilizerReport | null;
+    recentReports: MobilizerReport[];
+  } | null;
+}
+
+interface MobilizerReport {
+  id: string;
+  periodStart: string;
+  peopleReached: number;
+  meetingsHeld: number;
+  newVolunteers: number;
+  keyIssues?: string | null;
+  notes?: string | null;
+  status: string;
+  adminNote?: string | null;
+  createdAt: string;
 }
 
 const roleMeta: Record<string, { label: string; icon: string; color: string; nextStep: string; guide: string[] }> = {
@@ -91,6 +113,10 @@ export default function VolunteerToolkit({ data }: { data: ToolkitData }) {
       {!data.isApproved && <AwaitingApproval status={data.status} role={role} />}
 
       {data.isApproved && <StipendPanel initialStipend={data.stipend} />}
+
+      {data.role === 'mobilizer' && data.isApproved && data.mobilizer && (
+        <MobilizerHub assignment={{ county: data.county, constituency: data.constituency, ward: data.ward }} initialData={data.mobilizer} />
+      )}
 
       {data.approvedSocial && data.social && <SocialMediaHub social={data.social} />}
 
@@ -175,6 +201,138 @@ function RoleGuide({ role }: { role: { icon: string; label: string; nextStep: st
       </div>
     </section>
   );
+}
+
+function MobilizerHub({ assignment, initialData }: {
+  assignment: { county: string; constituency: string; ward: string };
+  initialData: NonNullable<ToolkitData['mobilizer']>;
+}) {
+  const [mobilizer, setMobilizer] = useState(initialData);
+  const [form, setForm] = useState({ peopleReached: '', meetingsHeld: '', newVolunteers: '', keyIssues: '', notes: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const submitReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting || mobilizer.currentReport) return;
+    const token = sessionStorage.getItem('campaign_volunteer_token');
+    if (!token) { setMessage('Your session has expired. Please log in again.'); return; }
+    setSubmitting(true); setMessage('');
+    try {
+      const response = await fetch('/api/volunteers/mobilizer/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          peopleReached: Number(form.peopleReached || 0),
+          meetingsHeld: Number(form.meetingsHeld || 0),
+          newVolunteers: Number(form.newVolunteers || 0),
+          keyIssues: form.keyIssues,
+          notes: form.notes,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.mobilizer) {
+        setMobilizer(data.mobilizer);
+        setMessage('Your weekly field report has been submitted for campaign review.');
+      } else {
+        setMessage(data.message || 'Could not submit the report. Please try again.');
+      }
+    } catch {
+      setMessage('Connection error. Please try again later.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const statusColor = (status: string) => status === 'actioned' ? 'bg-green-100 text-green-700' : status === 'reviewed' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700';
+
+  return (
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-2xl bg-purple-700 p-6 text-white">
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand-yellow/15 blur-2xl" />
+        <div className="relative">
+          <p className="text-xs font-extrabold uppercase tracking-widest text-brand-yellow">Mobilizer operations</p>
+          <h3 className="mt-1 text-2xl font-extrabold">Your field area</h3>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <AssignmentCard label="County" value={assignment.county} />
+            <AssignmentCard label="Constituency" value={assignment.constituency} />
+            <AssignmentCard label="Ward" value={assignment.ward} />
+          </div>
+          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-purple-100">Coordinate community activity in your assigned area, submit weekly aggregate reports, and escalate local issues. Do not collect named voter lists or political preference profiles.</p>
+          {mobilizer.groupLink ? <a href={mobilizer.groupLink} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-extrabold text-purple-700 transition-colors hover:bg-gray-100">💬 Join Mobilizer Coordination Group</a> : <p className="mt-5 text-sm italic text-purple-100">Your coordinator will add the mobilizer group link here soon.</p>}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="section-label mb-1">Weekly field report</p>
+            <h3 className="text-xl font-extrabold">Week of {new Date(mobilizer.periodStart).toLocaleDateString()}</h3>
+          </div>
+          {mobilizer.currentReport && <span className={`rounded px-3 py-1 text-xs font-bold ${statusColor(mobilizer.currentReport.status)}`}>{mobilizer.currentReport.status}</span>}
+        </div>
+
+        {message && <div className="mb-4 rounded-lg border border-brand-yellow bg-brand-yellow/10 px-4 py-3 text-sm font-semibold text-gray-700">{message}</div>}
+
+        {mobilizer.currentReport ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <ReportMetric label="People reached" value={mobilizer.currentReport.peopleReached} />
+              <ReportMetric label="Meetings" value={mobilizer.currentReport.meetingsHeld} />
+              <ReportMetric label="Volunteer referrals" value={mobilizer.currentReport.newVolunteers} />
+            </div>
+            {mobilizer.currentReport.keyIssues && <ReportText title="Key local issues" text={mobilizer.currentReport.keyIssues} />}
+            {mobilizer.currentReport.notes && <ReportText title="Field notes" text={mobilizer.currentReport.notes} />}
+            {mobilizer.currentReport.adminNote && <div className="rounded-xl bg-green-50 p-4 text-sm text-green-900"><strong>Coordinator follow-up:</strong> {mobilizer.currentReport.adminNote}</div>}
+            <p className="text-xs text-gray-400">One weekly report is allowed. A new report opens at the start of the next Monday-based reporting week.</p>
+          </div>
+        ) : (
+          <form onSubmit={submitReport} className="space-y-4">
+            <p className="text-sm text-gray-600">Report aggregate activity only. Do not include names, phone numbers, or individual political preferences.</p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FieldNumber label="People reached" value={form.peopleReached} onChange={value => setForm({ ...form, peopleReached: value })} />
+              <FieldNumber label="Community meetings" value={form.meetingsHeld} onChange={value => setForm({ ...form, meetingsHeld: value })} />
+              <FieldNumber label="Volunteer referrals" value={form.newVolunteers} onChange={value => setForm({ ...form, newVolunteers: value })} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-gray-700">Key local issues (optional)</label>
+              <textarea rows={3} maxLength={1000} value={form.keyIssues} onChange={e => setForm({ ...form, keyIssues: e.target.value })} placeholder="Example: water access, road maintenance, youth employment concerns — no names or private details" className="w-full rounded-lg border-2 border-gray-200 px-4 py-3 outline-none focus:border-brand-yellow" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-gray-700">Additional field notes (optional)</label>
+              <textarea rows={3} maxLength={2000} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Brief aggregate update for the campaign team" className="w-full rounded-lg border-2 border-gray-200 px-4 py-3 outline-none focus:border-brand-yellow" />
+            </div>
+            <button type="submit" disabled={submitting} className={`w-full rounded-xl py-3.5 text-sm font-extrabold transition-colors ${submitting ? 'bg-gray-200 text-gray-400' : 'bg-purple-700 text-white hover:bg-purple-800'}`}>{submitting ? 'Submitting…' : 'Submit weekly report'}</button>
+          </form>
+        )}
+      </section>
+
+      {mobilizer.recentReports.length > 0 && (
+        <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h3 className="mb-4 text-lg font-extrabold">Recent field reports</h3>
+          <div className="space-y-3">
+            {mobilizer.recentReports.map(report => <div key={report.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 p-4"><div><p className="font-semibold">Week of {new Date(report.periodStart).toLocaleDateString()}</p><p className="mt-1 text-xs text-gray-500">{report.peopleReached} reached · {report.meetingsHeld} meetings · {report.newVolunteers} referrals</p></div><span className={`rounded px-2 py-1 text-xs font-semibold ${statusColor(report.status)}`}>{report.status}</span></div>)}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function AssignmentCard({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-xl bg-white/10 p-3"><p className="text-xs font-bold uppercase tracking-wide text-purple-100">{label}</p><p className="mt-1 font-extrabold">{value || 'Not assigned'}</p></div>;
+}
+
+function ReportMetric({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-xl bg-purple-50 p-3 text-center"><p className="text-2xl font-extrabold text-purple-700">{value}</p><p className="text-[11px] font-semibold leading-tight text-gray-500">{label}</p></div>;
+}
+
+function ReportText({ title, text }: { title: string; text: string }) {
+  return <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs font-extrabold uppercase tracking-wide text-gray-500">{title}</p><p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-700">{text}</p></div>;
+}
+
+function FieldNumber({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <div><label className="mb-1 block text-sm font-semibold text-gray-700">{label}</label><input type="number" min="0" max="100000" value={value} onChange={e => onChange(e.target.value)} placeholder="0" className="w-full rounded-lg border-2 border-gray-200 px-4 py-3 outline-none focus:border-brand-yellow" /></div>;
 }
 
 function StipendPanel({ initialStipend }: { initialStipend: ToolkitData['stipend'] }) {
