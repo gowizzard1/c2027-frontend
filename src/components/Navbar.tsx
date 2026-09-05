@@ -21,6 +21,7 @@ export default function Navbar() {
     { href: '/about',       label: 'About' },
     { href: '/manifesto',   label: 'Manifesto' },
     { href: '/news',        label: 'News & Events' },
+    { href: '/results',     label: 'Results' },
     { href: '/volunteer',   label: 'Volunteer' },
     { href: '/merchandise', label: 'Merch' },
   ];
