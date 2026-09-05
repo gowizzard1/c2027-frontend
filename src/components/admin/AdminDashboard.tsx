@@ -436,7 +436,7 @@ function StipendsPanel({ headers, onLogout }: { headers: any; onLogout: () => vo
     <div>
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">Mobile-data stipend requests</h2>
-        <p className="mt-1 text-sm text-gray-500">Approved volunteers can request once every 7 days. Approve requests here, send payment manually for now, then mark it paid. M-Pesa automation can replace this final manual step later.</p>
+        <p className="mt-1 text-sm text-gray-500">Volunteers become eligible only after the active-service delay configured in Settings. After approval/paid status, repeat requests are limited to once every 7 days. Approve requests here, send payment manually for now, then mark it paid. M-Pesa automation can replace this final manual step later.</p>
       </div>
       {requests.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No stipend requests yet.</div> : (
         <div className="overflow-x-auto rounded-xl border bg-white">
@@ -1099,6 +1099,21 @@ function SettingsPanel({ headers, onLogout }: { headers: any; onLogout: () => vo
                 <p className="text-xs text-gray-400 mt-1">Link shared alongside the message (defaults to the site homepage).</p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Volunteer Stipend Rules */}
+        <div className="border-t pt-6">
+          <h3 className="font-bold text-gray-900 mb-1">Volunteer Mobile-data Stipend</h3>
+          <p className="text-xs text-gray-500 mb-4">
+            Controls when a newly approved volunteer becomes eligible to make their first stipend request. The weekly repeat limit remains enforced separately.
+          </p>
+          <div className="max-w-sm">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Active-service delay before first request (days)</label>
+            <input type="number" min="0" max="90" step="1" value={settings.stipendActivationDelayDays ?? 7}
+              onChange={e => setSettings({ ...settings, stipendActivationDelayDays: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+              className="w-full border rounded-lg px-3 py-2 text-sm" />
+            <p className="mt-1 text-xs text-gray-400">Set to 0 to allow an approved volunteer to request immediately. Maximum: 90 days.</p>
           </div>
         </div>
 

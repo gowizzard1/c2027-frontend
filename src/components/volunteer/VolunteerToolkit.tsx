@@ -15,6 +15,8 @@ export interface ToolkitData {
     canRequest: boolean;
     reason: string | null;
     nextEligibleAt: string | null;
+    activationDelayDays: number;
+    repeatCooldownDays: number;
     latestRequest: { id: string; status: string; requestedAt: string; approvedAt?: string | null; paidAt?: string | null } | null;
   };
 }
@@ -179,6 +181,8 @@ function StipendPanel({ initialStipend }: { initialStipend: ToolkitData['stipend
   const [stipend, setStipend] = useState(initialStipend);
   const [requesting, setRequesting] = useState(false);
   const [message, setMessage] = useState('');
+  const activationDelayDays = stipend.activationDelayDays ?? 7;
+  const repeatCooldownDays = stipend.repeatCooldownDays ?? 7;
 
   const requestStipend = async () => {
     if (requesting || !stipend.canRequest) return;
@@ -221,7 +225,7 @@ function StipendPanel({ initialStipend }: { initialStipend: ToolkitData['stipend
             <p className="text-xs font-extrabold uppercase tracking-widest text-blue-700">Volunteer support</p>
             <h3 className="mt-1 text-xl font-extrabold text-brand-black">Weekly mobile-data stipend</h3>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-700">
-              Approved volunteers can request mobile-data support once every 7 days. Requests are reviewed by the campaign team and sent manually for now.
+              After you have been an approved active volunteer for {activationDelayDays} day{activationDelayDays === 1 ? '' : 's'}, you can request mobile-data support. After a stipend is approved or paid, requests remain limited to once every {repeatCooldownDays} days.
             </p>
           </div>
         </div>
