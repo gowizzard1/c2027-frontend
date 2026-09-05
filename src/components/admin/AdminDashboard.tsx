@@ -380,6 +380,8 @@ See you inside — together we rise! 🇰🇪`
     }
   };
 
+  const formatDate = (value?: string) => value ? new Date(value).toLocaleString() : '—';
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-900 mb-2">Volunteers ({volunteers.length})</h2>
@@ -401,6 +403,7 @@ See you inside — together we rise! 🇰🇪`
                 <th className="px-4 py-3 text-left">Phone</th>
                 <th className="px-4 py-3 text-left">Location</th>
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Account activity</th>
                 <th className="px-4 py-3 text-left">Actions</th>
               </tr>
             </thead>
@@ -417,6 +420,29 @@ See you inside — together we rise! 🇰🇪`
                       v.status === 'rejected' ? 'bg-red-100 text-red-700' :
                       'bg-yellow-100 text-yellow-700'
                     }`}>{v.status}</span>
+                  </td>
+                  <td className="px-4 py-3 text-xs min-w-[180px]">
+                    {v.activatedAt ? (
+                      <>
+                        <p className="font-semibold text-green-700">✓ Account activated</p>
+                        <p className="mt-1 text-gray-500">Last login: {formatDate(v.lastLoginAt)}</p>
+                      </>
+                    ) : v.inviteDeliveryStatus === 'failed' ? (
+                      <>
+                        <p className="font-semibold text-red-600">⚠ Invite email failed</p>
+                        <p className="mt-1 text-gray-500">Last attempt: {formatDate(v.inviteFailedAt)}</p>
+                      </>
+                    ) : v.inviteDeliveryStatus === 'sent' ? (
+                      <>
+                        <p className="font-semibold text-blue-700">✉ Invite accepted for delivery</p>
+                        <p className="mt-1 text-gray-500">Sent: {formatDate(v.inviteSentAt)}</p>
+                      </>
+                    ) : (
+                      <p className="text-gray-500">No invite sent yet</p>
+                    )}
+                    {v.loginFailureCount > 0 && (
+                      <p className="mt-1 font-semibold text-amber-700">⚠ {v.loginFailureCount} failed login{v.loginFailureCount === 1 ? '' : 's'} · {formatDate(v.lastLoginFailedAt)}</p>
+                    )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <button onClick={() => updateStatus(v.id, 'approved')} className="text-xs text-green-600 hover:underline mr-2">Approve</button>
