@@ -127,15 +127,22 @@ function JourneyStep({ number, title, description, active }: { number: string; t
 
 function AwaitingApproval({ status, role }: { status: string; role: { icon: string; label: string; nextStep: string } }) {
   const rejected = status === 'rejected';
+  const suspended = status === 'suspended';
+  const archived = status === 'archived';
+  const icon = rejected ? '📩' : suspended ? '⏸️' : archived ? '🔒' : '⏳';
+  const title = rejected ? 'Application not approved' : suspended ? 'Volunteer access suspended' : archived ? 'Account archived' : 'Your application is under review';
+  const message = rejected
+    ? 'Please contact the campaign team if you believe this decision needs review.'
+    : suspended
+      ? 'Your access has been paused by the campaign team. Please contact your coordinator for next steps.'
+      : archived
+        ? 'This volunteer account is archived. Please contact the campaign team if you need it restored.'
+        : `Thanks for applying as a ${role.label}. ${role.nextStep}`;
   return (
-    <section className={`rounded-2xl border p-6 text-center ${rejected ? 'border-red-200 bg-red-50' : 'border-brand-yellow bg-brand-yellow/10'}`}>
-      <div className="mb-3 text-4xl">{rejected ? '📩' : '⏳'}</div>
-      <h3 className="text-xl font-extrabold">{rejected ? 'Application not approved' : 'Your application is under review'}</h3>
-      <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-gray-600">
-        {rejected
-          ? 'Please contact the campaign team if you believe this decision needs review.'
-          : `Thanks for applying as a ${role.label}. ${role.nextStep}`}
-      </p>
+    <section className={`rounded-2xl border p-6 text-center ${rejected ? 'border-red-200 bg-red-50' : suspended || archived ? 'border-gray-300 bg-gray-50' : 'border-brand-yellow bg-brand-yellow/10'}`}>
+      <div className="mb-3 text-4xl">{icon}</div>
+      <h3 className="text-xl font-extrabold">{title}</h3>
+      <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-gray-600">{message}</p>
     </section>
   );
 }

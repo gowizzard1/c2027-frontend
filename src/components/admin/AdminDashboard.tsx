@@ -298,13 +298,16 @@ function PledgesPanel({ headers, onLogout }: { headers: any; onLogout: () => voi
 // --- Volunteers Panel ---
 function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => void }) {
   const [volunteers, setVolunteers] = useState<any[]>([]);
+  const [view, setView] = useState<'active' | 'archived'>('active');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/admin/volunteers', { headers })
+    const query = view === 'archived' ? '?archived=true' : '';
+    fetch(`/api/admin/volunteers${query}`, { headers })
       .then(res => { if (res.status === 401) { onLogout(); return []; } return res.json(); })
       .then(data => setVolunteers(data || []))
-      .catch(() => {});
-  }, []);
+      .catch(() => setVolunteers([]));
+  }, [view]);
 
   const roleLabels: Record<string, string> = {
     polling_agent: '🗳️ Polling Agent',
@@ -312,23 +315,28 @@ function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => 
     social_media: '📱 Social Media',
   };
 
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const formatDate = (value?: string) => value ? new Date(value).toLocaleString() : '—';
 
-  const updateStatus = async (id: string, status: string) => {
-    await fetch(`/api/admin/volunteers/${id}`, {
+  const updateStatus = async (id: string, status: 'approved' | 'rejected' | 'suspended') => {
+    const res = await fetch(`/api/admin/volunteers/${id}`, {
       method: 'PATCH', headers, body: JSON.stringify({ status }),
     });
-    setVolunteers(prev => prev.map(v => v.id === id ? { ...v, status } : v));
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.message || 'Could not update volunteer status.');
+      return;
+    }
+    const updated = await res.json();
+    setVolunteers(prev => prev.map(v => v.id === id ? { ...v, ...updated } : v));
   };
 
   const buildInviteMessage = (v: any) => {
     const origin = window.location.origin;
     const activationLink = `${origin}/volunteer/toolkit?key=${v.accessToken}`;
     const loginUrl = `${origin}/volunteer/login`;
-    return (
-`Hi ${v.name},
+    return `Hi ${v.name},
 
-You've been approved as a Campaign 2027 volunteer! 🎉
+You've been approved as a Maiywa 4 Turbo 2027 volunteer! 🎉
 
 1) Activate your account and set a password here:
 ${activationLink}
@@ -337,8 +345,7 @@ ${activationLink}
 ${loginUrl}
    Email: ${v.email}
 
-See you inside — together we rise! 🇰🇪`
-    );
+See you inside — together we rise! 🇰🇪`;
   };
 
   const copyInvite = async (v: any) => {
@@ -357,42 +364,72 @@ See you inside — together we rise! 🇰🇪`
     if (!confirm(`Reset access for ${v.name}? This creates a new invite link and clears their current password.`)) return;
     const res = await fetch(`/api/admin/volunteers/${v.id}/reset-access`, { method: 'POST', headers });
     if (res.ok) {
-      const d = await res.json();
-      setVolunteers(prev => prev.map(x => x.id === v.id ? { ...x, accessToken: d.accessToken } : x));
-      alert('New invite link generated. Use "Copy invite" to send it.');
+      const data = await res.json();
+      setVolunteers(prev => prev.map(x => x.id === v.id ? { ...x, accessToken: data.accessToken, activatedAt: null, inviteDeliveryStatus: 'not_sent' } : x));
+      alert('New invite link generated and an email has been queued.');
     } else {
       alert('Could not reset access. Please try again.');
     }
   };
 
-  const deleteVolunteer = async (v: any) => {
-    const confirmed = confirm(
-      `Delete ${v.name}? This permanently removes their volunteer record and account access. This cannot be undone.`,
-    );
-    if (!confirmed) return;
-
-    const res = await fetch(`/api/admin/volunteers/${v.id}`, { method: 'DELETE', headers });
+  const archiveVolunteer = async (v: any) => {
+    if (!confirm(`Archive ${v.name}? They will be removed from the active list and lose portal access. You can restore them later.`)) return;
+    const res = await fetch(`/api/admin/volunteers/${v.id}/archive`, { method: 'POST', headers });
     if (res.ok) {
       setVolunteers(prev => prev.filter(item => item.id !== v.id));
     } else {
       const data = await res.json().catch(() => ({}));
-      alert(data.message || 'Could not delete this volunteer. Please try again.');
+      alert(data.message || 'Could not archive this volunteer.');
     }
   };
 
-  const formatDate = (value?: string) => value ? new Date(value).toLocaleString() : '—';
+  const restoreVolunteer = async (v: any) => {
+    const res = await fetch(`/api/admin/volunteers/${v.id}/restore`, { method: 'POST', headers });
+    if (res.ok) {
+      setVolunteers(prev => prev.filter(item => item.id !== v.id));
+      alert(`${v.name} was restored to ${v.statusBeforeArchive || 'pending'} status.`);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.message || 'Could not restore this volunteer.');
+    }
+  };
+
+  const statusStyle = (status: string) =>
+    status === 'approved' ? 'bg-green-100 text-green-700' :
+    status === 'suspended' ? 'bg-orange-100 text-orange-700' :
+    status === 'rejected' ? 'bg-red-100 text-red-700' :
+    status === 'archived' ? 'bg-gray-200 text-gray-600' :
+    'bg-yellow-100 text-yellow-700';
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">Volunteers ({volunteers.length})</h2>
-      <p className="text-sm text-gray-500 mb-6">
-        Approving a volunteer <strong>automatically emails them an invite</strong> (activation link to set a
-        password + login details). <strong>Copy invite</strong> is a manual fallback. Approved
-        <strong> Social Media</strong> volunteers get the group invite &amp; sharing toolkit
-        (set the group link in Settings). <strong>Reset access</strong> emails a fresh link if they forget their password.
-      </p>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Volunteer Management</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Approve pending applications, suspend active access when needed, and archive records without deleting history.
+          </p>
+        </div>
+        <div className="flex rounded-lg border bg-white p-1 text-sm font-semibold">
+          <button onClick={() => setView('active')} className={`rounded-md px-4 py-2 transition-colors ${view === 'active' ? 'bg-brand-green text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+            Active ({view === 'active' ? volunteers.length : ''})
+          </button>
+          <button onClick={() => setView('archived')} className={`rounded-md px-4 py-2 transition-colors ${view === 'archived' ? 'bg-gray-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+            Archived ({view === 'archived' ? volunteers.length : ''})
+          </button>
+        </div>
+      </div>
+
+      {view === 'active' && (
+        <div className="mb-5 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 p-4 text-sm text-gray-700">
+          <strong>Account lifecycle:</strong> Pending applicants can be approved or rejected. Approved volunteers can be suspended or archived. Suspended volunteers can be unsuspended. Archive is reversible and preserves history.
+        </div>
+      )}
+
       {volunteers.length === 0 ? (
-        <p className="text-gray-500">No volunteers registered yet.</p>
+        <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">
+          {view === 'archived' ? 'No archived volunteers.' : 'No active volunteers found.'}
+        </div>
       ) : (
         <div className="bg-white rounded-lg border overflow-x-auto">
           <table className="w-full text-sm">
@@ -408,58 +445,32 @@ See you inside — together we rise! 🇰🇪`
               </tr>
             </thead>
             <tbody>
-              {volunteers.map((v) => (
-                <tr key={v.id} className="border-b hover:bg-gray-50">
-                  <td className="px-4 py-3">{v.name}</td>
+              {volunteers.map(v => (
+                <tr key={v.id} className="border-b align-top hover:bg-gray-50">
+                  <td className="px-4 py-3"><p className="font-medium">{v.name}</p><p className="mt-0.5 text-xs text-gray-500">{v.email}</p></td>
                   <td className="px-4 py-3">{roleLabels[v.role] || v.role}</td>
                   <td className="px-4 py-3">{v.phone}</td>
                   <td className="px-4 py-3 text-xs">{v.ward}, {v.constituency}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      v.status === 'approved' ? 'bg-green-100 text-green-700' :
-                      v.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>{v.status}</span>
+                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs font-medium ${statusStyle(v.status)}`}>{v.status}</span>{v.archivedAt && <p className="mt-1 text-xs text-gray-400">{formatDate(v.archivedAt)}</p>}</td>
+                  <td className="min-w-[185px] px-4 py-3 text-xs">
+                    {v.activatedAt ? <><p className="font-semibold text-green-700">✓ Account activated</p><p className="mt-1 text-gray-500">Last login: {formatDate(v.lastLoginAt)}</p></>
+                    : v.inviteDeliveryStatus === 'failed' ? <><p className="font-semibold text-red-600">⚠ Invite email failed</p><p className="mt-1 text-gray-500">Attempt: {formatDate(v.inviteFailedAt)}</p></>
+                    : v.inviteDeliveryStatus === 'sent' ? <><p className="font-semibold text-blue-700">✉ Invite accepted for delivery</p><p className="mt-1 text-gray-500">Sent: {formatDate(v.inviteSentAt)}</p></>
+                    : <p className="text-gray-500">No invite sent yet</p>}
+                    {v.loginFailureCount > 0 && <p className="mt-1 font-semibold text-amber-700">⚠ {v.loginFailureCount} failed login{v.loginFailureCount === 1 ? '' : 's'} · {formatDate(v.lastLoginFailedAt)}</p>}
                   </td>
-                  <td className="px-4 py-3 text-xs min-w-[180px]">
-                    {v.activatedAt ? (
-                      <>
-                        <p className="font-semibold text-green-700">✓ Account activated</p>
-                        <p className="mt-1 text-gray-500">Last login: {formatDate(v.lastLoginAt)}</p>
-                      </>
-                    ) : v.inviteDeliveryStatus === 'failed' ? (
-                      <>
-                        <p className="font-semibold text-red-600">⚠ Invite email failed</p>
-                        <p className="mt-1 text-gray-500">Last attempt: {formatDate(v.inviteFailedAt)}</p>
-                      </>
-                    ) : v.inviteDeliveryStatus === 'sent' ? (
-                      <>
-                        <p className="font-semibold text-blue-700">✉ Invite accepted for delivery</p>
-                        <p className="mt-1 text-gray-500">Sent: {formatDate(v.inviteSentAt)}</p>
-                      </>
+                  <td className="min-w-[180px] px-4 py-3">
+                    {view === 'archived' ? (
+                      <button onClick={() => restoreVolunteer(v)} className="text-xs font-semibold text-brand-green hover:underline">↩ Restore</button>
                     ) : (
-                      <p className="text-gray-500">No invite sent yet</p>
+                      <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs">
+                        {v.status === 'pending' && <><button onClick={() => updateStatus(v.id, 'approved')} className="text-green-600 hover:underline">Approve</button><button onClick={() => updateStatus(v.id, 'rejected')} className="text-red-600 hover:underline">Reject</button></>}
+                        {v.status === 'rejected' && <button onClick={() => updateStatus(v.id, 'approved')} className="text-green-600 hover:underline">Approve</button>}
+                        {v.status === 'approved' && <><button onClick={() => updateStatus(v.id, 'suspended')} className="text-orange-600 hover:underline">Suspend</button><button onClick={() => copyInvite(v)} className="font-semibold text-brand-green hover:underline">{copiedId === v.id ? '✓ Copied' : '✉️ Copy invite'}</button><button onClick={() => resetAccess(v)} className="text-gray-500 hover:underline">Reset access</button></>}
+                        {v.status === 'suspended' && <button onClick={() => updateStatus(v.id, 'approved')} className="text-green-600 hover:underline">Unsuspend</button>}
+                        <button onClick={() => archiveVolunteer(v)} className="text-gray-500 hover:text-gray-800 hover:underline">Archive</button>
+                      </div>
                     )}
-                    {v.loginFailureCount > 0 && (
-                      <p className="mt-1 font-semibold text-amber-700">⚠ {v.loginFailureCount} failed login{v.loginFailureCount === 1 ? '' : 's'} · {formatDate(v.lastLoginFailedAt)}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <button onClick={() => updateStatus(v.id, 'approved')} className="text-xs text-green-600 hover:underline mr-2">Approve</button>
-                    <button onClick={() => updateStatus(v.id, 'rejected')} className="text-xs text-red-600 hover:underline mr-2">Reject</button>
-                    {v.status === 'approved' && (
-                      <>
-                        <button onClick={() => copyInvite(v)} className="text-xs text-brand-green font-semibold hover:underline mr-2">
-                          {copiedId === v.id ? '✓ Copied invite' : '✉️ Copy invite'}
-                        </button>
-                        <button onClick={() => resetAccess(v)} className="text-xs text-gray-500 hover:underline mr-2">
-                          Reset access
-                        </button>
-                      </>
-                    )}
-                    <button onClick={() => deleteVolunteer(v)} className="text-xs text-red-600 hover:text-red-700 hover:underline">
-                      Delete
-                    </button>
                   </td>
                 </tr>
               ))}
