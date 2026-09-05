@@ -74,10 +74,15 @@ export default function VolunteerPage() {
     setIsSubmitting(true);
 
     try {
+      const payload = {
+        ...formData,
+        // Existing-station ID is intentionally omitted when proposing a missing station.
+        ...(formData.role === 'polling_agent' && proposeStation ? { pollingStationId: undefined } : {}),
+      };
       const res = await fetch('/api/volunteers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
