@@ -48,7 +48,7 @@ export default function ResultsPage() {
             </section>
 
             <section className="rounded-2xl border bg-white p-6 shadow-sm">
-              <div className="mb-5"><p className="section-label mb-1">Aggregate from verified stations</p><h2 className="text-2xl font-extrabold">Candidate vote totals</h2></div>
+              <div className="mb-5"><p className="section-label mb-1">Aggregate from verified stations</p><h2 className="text-2xl font-extrabold">Candidate vote totals</h2><p className="mt-1 text-xs text-gray-500">Only currently active candidates are shown in this breakdown.</p></div>
               <div className="space-y-4">
                 {results.candidates.map(candidate => <div key={candidate.id}><div className="mb-1 flex justify-between gap-3 text-sm"><div className="flex items-center gap-2"><ResultCandidateAvatar candidate={candidate} /><span className="font-bold">{candidate.name}{candidate.party && <span className="ml-2 font-normal text-gray-500">{candidate.party}</span>}</span></div><span className="font-extrabold">{candidate.votes.toLocaleString()}</span></div><div className="h-3 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-brand-green" style={{ width: `${(candidate.votes / maxVotes) * 100}%` }} /></div></div>)}
               </div>
