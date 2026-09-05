@@ -11,6 +11,12 @@ export interface ToolkitData {
   isApproved: boolean;
   approvedSocial: boolean;
   social: { groupLink: string; shareMessage: string; shareUrl: string } | null;
+  stipend: {
+    canRequest: boolean;
+    reason: string | null;
+    nextEligibleAt: string | null;
+    latestRequest: { id: string; status: string; requestedAt: string; approvedAt?: string | null; paidAt?: string | null } | null;
+  };
 }
 
 const roleMeta: Record<string, { label: string; icon: string; color: string; nextStep: string; guide: string[] }> = {
@@ -81,6 +87,8 @@ export default function VolunteerToolkit({ data }: { data: ToolkitData }) {
       </section>
 
       {!data.isApproved && <AwaitingApproval status={data.status} role={role} />}
+
+      {data.isApproved && <StipendPanel initialStipend={data.stipend} />}
 
       {data.approvedSocial && data.social && <SocialMediaHub social={data.social} />}
 
@@ -162,6 +170,75 @@ function RoleGuide({ role }: { role: { icon: string; label: string; nextStep: st
             ))}
           </ul>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function StipendPanel({ initialStipend }: { initialStipend: ToolkitData['stipend'] }) {
+  const [stipend, setStipend] = useState(initialStipend);
+  const [requesting, setRequesting] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const requestStipend = async () => {
+    if (requesting || !stipend.canRequest) return;
+    const token = sessionStorage.getItem('campaign_volunteer_token');
+    if (!token) {
+      setMessage('Your session has expired. Please log in again.');
+      return;
+    }
+    setRequesting(true); setMessage('');
+    try {
+      const response = await fetch('/api/volunteers/stipend/request', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.stipend) {
+        setStipend(data.stipend);
+        setMessage('Your request has been sent to the campaign team for review.');
+      } else {
+        setMessage(data.message || 'Your request could not be submitted. Please try again later.');
+      }
+    } catch {
+      setMessage('Connection error. Please try again later.');
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  const statusLabel = stipend.latestRequest?.status === 'paid' ? 'Paid' :
+    stipend.latestRequest?.status === 'approved' ? 'Approved — manual payment pending' :
+    stipend.latestRequest?.status === 'pending' ? 'Awaiting admin review' :
+    stipend.latestRequest?.status === 'rejected' ? 'Not approved' : null;
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-blue-200 bg-blue-50">
+      <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-xl text-white">📶</span>
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-widest text-blue-700">Volunteer support</p>
+            <h3 className="mt-1 text-xl font-extrabold text-brand-black">Weekly mobile-data stipend</h3>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-700">
+              Approved volunteers can request mobile-data support once every 7 days. Requests are reviewed by the campaign team and sent manually for now.
+            </p>
+          </div>
+        </div>
+        {stipend.canRequest && (
+          <button onClick={requestStipend} disabled={requesting} className={`shrink-0 rounded-lg px-5 py-3 text-sm font-extrabold transition-colors ${requesting ? 'bg-blue-200 text-blue-500' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+            {requesting ? 'Submitting…' : 'Request data stipend'}
+          </button>
+        )}
+      </div>
+      <div className="border-t border-blue-200 bg-white/70 px-6 py-4 text-sm">
+        {message ? <p className="font-semibold text-blue-800">{message}</p> : stipend.canRequest ? <p className="text-gray-600">You are eligible to request this week&apos;s stipend.</p> : (
+          <div>
+            {statusLabel && <p className="font-semibold text-gray-800">Status: {statusLabel}</p>}
+            <p className="mt-1 text-gray-600">{stipend.reason || 'Please check back later.'}</p>
+            {stipend.nextEligibleAt && <p className="mt-1 text-xs text-gray-500">Next request available: {new Date(stipend.nextEligibleAt).toLocaleString()}</p>}
+          </div>
+        )}
       </div>
     </section>
   );

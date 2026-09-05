@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
+type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
 
 interface Props {
   token: string;
@@ -42,6 +42,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
     { id: 'news',      label: 'News & Events',icon: '📰' },
     { id: 'donations', label: 'Donations',    icon: '💰' },
     { id: 'pledges',   label: 'Pledges',      icon: '🙌' },
+    { id: 'stipends',  label: 'Stipends',     icon: '📶' },
     { id: 'volunteers',label: 'Volunteers',   icon: '👥' },
     { id: 'orders',    label: 'Orders',       icon: '📦' },
     { id: 'products',  label: 'Products',     icon: '🏪' },
@@ -104,6 +105,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
           {activeTab === 'biography' && <BiographyPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'donations' && <DonationsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'pledges' && <PledgesPanel headers={headers} onLogout={onLogout} />}
+          {activeTab === 'stipends' && <StipendsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'volunteers' && <VolunteersPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'orders' && <OrdersPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'news' && <NewsPanel headers={headers} onLogout={onLogout} />}
@@ -381,6 +383,97 @@ function PledgesPanel({ headers, onLogout }: { headers: any; onLogout: () => voi
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Mobile-data stipend requests ---
+function StipendsPanel({ headers, onLogout }: { headers: any; onLogout: () => void }) {
+  const [requests, setRequests] = useState<any[]>([]);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/stipend-requests', { headers })
+      .then(res => { if (res.status === 401) { onLogout(); return []; } return res.json(); })
+      .then(data => setRequests(data || []))
+      .catch(() => setRequests([]));
+  }, []);
+
+  const updateRequest = async (request: any, action: 'approve' | 'reject' | 'mark_paid') => {
+    let paymentRef = '';
+    if (action === 'mark_paid') {
+      paymentRef = prompt('Optional: enter the manual M-Pesa/payment reference:', '') || '';
+    }
+    if (action === 'reject' && !confirm(`Reject this stipend request from ${request.volunteer?.name || 'this volunteer'}?`)) return;
+    setUpdatingId(request.id);
+    try {
+      const res = await fetch(`/api/admin/stipend-requests/${request.id}`, {
+        method: 'PATCH', headers, body: JSON.stringify({ action, paymentRef }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.message || 'Could not update stipend request.');
+        return;
+      }
+      setRequests(prev => prev.map(item => item.id === request.id ? { ...item, ...data } : item));
+      if (action === 'approve') alert('Request approved. Send the mobile-data stipend manually, then mark it paid.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const statusStyle = (status: string) =>
+    status === 'paid' ? 'bg-green-100 text-green-700' :
+    status === 'approved' ? 'bg-blue-100 text-blue-700' :
+    status === 'rejected' ? 'bg-red-100 text-red-700' :
+    'bg-yellow-100 text-yellow-700';
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Mobile-data stipend requests</h2>
+        <p className="mt-1 text-sm text-gray-500">Approved volunteers can request once every 7 days. Approve requests here, send payment manually for now, then mark it paid. M-Pesa automation can replace this final manual step later.</p>
+      </div>
+      {requests.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No stipend requests yet.</div> : (
+        <div className="overflow-x-auto rounded-xl border bg-white">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left">Volunteer</th>
+                <th className="px-4 py-3 text-left">Contact</th>
+                <th className="px-4 py-3 text-left">Requested</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Payment</th>
+                <th className="px-4 py-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map(request => {
+                const volunteer = request.volunteer;
+                const busy = updatingId === request.id;
+                return (
+                  <tr key={request.id} className="border-b align-top hover:bg-gray-50">
+                    <td className="px-4 py-3"><p className="font-medium">{volunteer?.name || 'Deleted volunteer'}</p><p className="text-xs text-gray-500">{volunteer?.role?.replace('_', ' ') || '—'}</p></td>
+                    <td className="px-4 py-3 text-xs"><p>{volunteer?.phone || '—'}</p><p className="mt-1 text-gray-500">{volunteer?.email || '—'}</p></td>
+                    <td className="px-4 py-3 text-xs text-gray-600">{new Date(request.requestedAt).toLocaleString()}</td>
+                    <td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${statusStyle(request.status)}`}>{request.status}</span></td>
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      {request.paidAt ? <><p>Paid: {new Date(request.paidAt).toLocaleString()}</p>{request.paymentRef && <p className="mt-1">Ref: {request.paymentRef}</p>}</>
+                        : request.approvedAt ? <p>Approved: {new Date(request.approvedAt).toLocaleString()}</p> : '—'}
+                    </td>
+                    <td className="min-w-[170px] px-4 py-3">
+                      {request.status === 'pending' && <div className="flex flex-wrap gap-2"><button disabled={busy} onClick={() => updateRequest(request, 'approve')} className="text-xs font-semibold text-green-600 hover:underline disabled:opacity-50">Approve</button><button disabled={busy} onClick={() => updateRequest(request, 'reject')} className="text-xs text-red-600 hover:underline disabled:opacity-50">Reject</button></div>}
+                      {request.status === 'approved' && <button disabled={busy} onClick={() => updateRequest(request, 'mark_paid')} className="text-xs font-semibold text-blue-700 hover:underline disabled:opacity-50">✓ Mark paid</button>}
+                      {request.status === 'paid' && <span className="text-xs text-gray-400">Completed</span>}
+                      {request.status === 'rejected' && <span className="text-xs text-gray-400">Closed</span>}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
