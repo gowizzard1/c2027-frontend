@@ -722,6 +722,10 @@ function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => 
   const [volunteers, setVolunteers] = useState<any[]>([]);
   const [view, setView] = useState<'active' | 'archived'>('active');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [wardFilter, setWardFilter] = useState('all');
 
   useEffect(() => {
     const query = view === 'archived' ? '?archived=true' : '';
@@ -823,6 +827,24 @@ See you inside — together we rise! 🇰🇪`;
     status === 'archived' ? 'bg-gray-200 text-gray-600' :
     'bg-yellow-100 text-yellow-700';
 
+  const wards = Array.from(new Set(volunteers.flatMap(account => account.assignments.map((assignment: any) => assignment.ward).filter(Boolean)))).sort();
+  const searchText = search.trim().toLowerCase();
+  const filteredVolunteers = volunteers
+    .map(account => ({
+      ...account,
+      assignments: account.assignments.filter((assignment: any) => {
+        const searchable = [account.name, account.email, account.phone, assignment.role, assignment.ward, assignment.constituency, assignment.pollingStation?.name]
+          .filter(Boolean).join(' ').toLowerCase();
+        return (!searchText || searchable.includes(searchText))
+          && (roleFilter === 'all' || assignment.role === roleFilter)
+          && (statusFilter === 'all' || assignment.status === statusFilter)
+          && (wardFilter === 'all' || assignment.ward === wardFilter);
+      }),
+    }))
+    .filter(account => account.assignments.length > 0);
+
+  const clearFilters = () => { setSearch(''); setRoleFilter('all'); setStatusFilter('all'); setWardFilter('all'); };
+
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
@@ -842,13 +864,24 @@ See you inside — together we rise! 🇰🇪`;
         </div>
       </div>
 
+      <section className="mb-5 rounded-xl border bg-white p-4">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,180px))_auto]">
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, email, phone, station, ward…" className="rounded-lg border px-3 py-2 text-sm outline-none focus:border-brand-yellow" />
+          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="rounded-lg border px-3 py-2 text-sm"><option value="all">All roles</option><option value="social_media">Social Media</option><option value="mobilizer">Mobilizer</option><option value="polling_agent">Polling Agent</option></select>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="rounded-lg border px-3 py-2 text-sm"><option value="all">All statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="suspended">Suspended</option><option value="rejected">Rejected</option><option value="archived">Archived</option></select>
+          <select value={wardFilter} onChange={e => setWardFilter(e.target.value)} className="rounded-lg border px-3 py-2 text-sm"><option value="all">All wards</option>{wards.map(ward => <option key={ward} value={ward}>{ward}</option>)}</select>
+          <button onClick={clearFilters} className="rounded-lg border px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">Clear</button>
+        </div>
+        <p className="mt-3 text-xs text-gray-500">Showing {filteredVolunteers.reduce((sum, account) => sum + account.assignments.length, 0)} matching role assignment{filteredVolunteers.reduce((sum, account) => sum + account.assignments.length, 0) === 1 ? '' : 's'} across {filteredVolunteers.length} account{filteredVolunteers.length === 1 ? '' : 's'}.</p>
+      </section>
+
       {view === 'active' && (
         <div className="mb-5 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 p-4 text-sm text-gray-700">
           <strong>Account lifecycle:</strong> Pending applicants can be approved or rejected. Approved volunteers can be suspended or archived. Suspended volunteers can be unsuspended. Archive is reversible and preserves history.
         </div>
       )}
 
-      {volunteers.length === 0 ? (
+      {filteredVolunteers.length === 0 ? (
         <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">
           {view === 'archived' ? 'No archived volunteers.' : 'No active volunteers found.'}
         </div>
@@ -867,7 +900,7 @@ See you inside — together we rise! 🇰🇪`;
               </tr>
             </thead>
             <tbody>
-              {volunteers.flatMap(account => account.assignments.map((assignment: any, index: number) => (
+              {filteredVolunteers.flatMap(account => account.assignments.map((assignment: any, index: number) => (
                 <tr key={assignment.id} className="border-b align-top hover:bg-gray-50">
                   <td className="px-4 py-3">
                     {index === 0 ? <><p className="font-medium">{account.name}</p><p className="mt-0.5 text-xs text-gray-500">{account.email}</p></> : <p className="text-xs text-gray-400">Same account ↑</p>}
