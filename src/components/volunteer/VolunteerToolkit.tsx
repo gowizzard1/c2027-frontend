@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export interface ToolkitData {
   name: string;
@@ -31,6 +31,19 @@ export interface ToolkitData {
     currentReport: MobilizerReport | null;
     recentReports: MobilizerReport[];
   } | null;
+  pollingResult: PollingResult | null;
+}
+
+interface PollingResult {
+  id: string;
+  status: string;
+  candidateVotesJson: string;
+  validVotes: number;
+  rejectedVotes: number;
+  notes?: string | null;
+  submittedAt: string;
+  reviewNote?: string | null;
+  attachments: { id: string; originalName: string; mimeType: string }[];
 }
 
 interface MobilizerReport {
@@ -124,7 +137,7 @@ export default function VolunteerToolkit({ data }: { data: ToolkitData }) {
       )}
 
       {data.role === 'polling_agent' && data.isApproved && (
-        <PollingAgentHub assignment={{ county: data.county, constituency: data.constituency, ward: data.ward, pollingStation: data.pollingStation }} />
+        <PollingAgentHub assignment={{ county: data.county, constituency: data.constituency, ward: data.ward, pollingStation: data.pollingStation }} initialResult={data.pollingResult} />
       )}
 
       {data.approvedSocial && data.social && <SocialMediaHub social={data.social} />}
@@ -257,34 +270,112 @@ function RoleGuide({ role }: { role: { icon: string; label: string; nextStep: st
   );
 }
 
-function PollingAgentHub({ assignment }: { assignment: { county: string; constituency: string; ward: string; pollingStation: { id: string; name: string; ward: string } | null } }) {
+function PollingAgentHub({ assignment, initialResult }: { assignment: { county: string; constituency: string; ward: string; pollingStation: { id: string; name: string; ward: string } | null }; initialResult: PollingResult | null }) {
+  const [candidates, setCandidates] = useState<{ id: string; name: string; party?: string | null }[]>([]);
+  const [votes, setVotes] = useState<Record<string, string>>({});
+  const [validVotes, setValidVotes] = useState('');
+  const [rejectedVotes, setRejectedVotes] = useState('0');
+  const [notes, setNotes] = useState('');
+  const [formPhoto, setFormPhoto] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (!assignment.pollingStation || initialResult) return;
+    fetch('/api/volunteers/election-candidates')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setCandidates(data || []))
+      .catch(() => setCandidates([]));
+  }, [assignment.pollingStation, initialResult]);
+
+  const totalCandidateVotes = candidates.reduce((sum, candidate) => sum + Number(votes[candidate.id] || 0), 0);
+
+  const submitResult = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting || !formPhoto || !assignment.pollingStation) return;
+    if (Number(validVotes) !== totalCandidateVotes) {
+      setMessage('Valid votes must equal the sum of all candidate vote counts.');
+      return;
+    }
+    const token = sessionStorage.getItem('campaign_volunteer_token');
+    if (!token) { setMessage('Your session has expired. Please log in again.'); return; }
+    setSubmitting(true); setMessage('');
+    try {
+      const form = new FormData();
+      form.append('candidateVotes', JSON.stringify(candidates.map(candidate => ({ candidateId: candidate.id, votes: Number(votes[candidate.id] || 0) }))));
+      form.append('validVotes', validVotes);
+      form.append('rejectedVotes', rejectedVotes || '0');
+      form.append('notes', notes);
+      form.append('formPhoto', formPhoto);
+      const response = await fetch('/api/volunteers/polling-result', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(data.message || 'Could not submit the station result.');
+        return;
+      }
+      setMessage('Result submitted privately for admin verification. Do not publish it as an official result.');
+      setTimeout(() => window.location.reload(), 1200);
+    } catch {
+      setMessage('Connection error. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const resultStatusStyle = (status: string) => status === 'verified' ? 'bg-green-100 text-green-700' : status === 'disputed' ? 'bg-red-100 text-red-700' : status === 'under_review' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700';
+
   return (
-    <section className="overflow-hidden rounded-2xl border border-blue-200 bg-blue-50">
-      <div className="bg-blue-700 p-6 text-white">
-        <p className="text-xs font-extrabold uppercase tracking-widest text-brand-yellow">Polling agent assignment</p>
-        <h3 className="mt-1 text-2xl font-extrabold">Turbo Constituency election team</h3>
-        <p className="mt-2 text-sm leading-relaxed text-blue-100">Your assignment is restricted to Uasin Gishu County and an official Turbo polling station. Detailed election-day tools will be enabled closer to polling operations.</p>
-      </div>
-      <div className="space-y-4 p-6">
-        {assignment.pollingStation ? (
-          <div className="rounded-xl border border-blue-200 bg-white p-5">
-            <p className="text-xs font-extrabold uppercase tracking-widest text-blue-700">Assigned polling station</p>
-            <h4 className="mt-1 text-xl font-extrabold text-brand-black">{assignment.pollingStation.name}</h4>
-            <p className="mt-1 text-sm text-gray-600">{assignment.pollingStation.ward} Ward · {assignment.constituency} Constituency · {assignment.county} County</p>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-brand-yellow bg-brand-yellow/10 p-5 text-sm text-gray-700">
-            <strong>Station assignment pending:</strong> Your polling station has not yet been assigned. The campaign team will update this dashboard after confirming the official Turbo station list.
-          </div>
-        )}
-        <div className="grid gap-3 sm:grid-cols-3">
-          <PollingStep icon="📚" title="Training" detail="Training schedule and materials will appear here." />
-          <PollingStep icon="📍" title="Check-in" detail="Election-day check-in opens closer to polling day." />
-          <PollingStep icon="🚨" title="Incident reporting" detail="Secure incident escalation will be enabled for active agents." />
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-2xl border border-blue-200 bg-blue-50">
+        <div className="bg-blue-700 p-6 text-white">
+          <p className="text-xs font-extrabold uppercase tracking-widest text-brand-yellow">Polling agent assignment</p>
+          <h3 className="mt-1 text-2xl font-extrabold">Turbo Constituency election team</h3>
+          <p className="mt-2 text-sm leading-relaxed text-blue-100">Your assignment is restricted to Uasin Gishu County and an official Turbo polling station. Agent-reported results stay private until admin verification.</p>
         </div>
-        <p className="text-xs leading-relaxed text-gray-500">Do not publish polling-station operations, incident details, voter information, or election-day documents outside official campaign and legal channels.</p>
-      </div>
-    </section>
+        <div className="space-y-4 p-6">
+          {assignment.pollingStation ? (
+            <div className="rounded-xl border border-blue-200 bg-white p-5">
+              <p className="text-xs font-extrabold uppercase tracking-widest text-blue-700">Assigned polling station</p>
+              <h4 className="mt-1 text-xl font-extrabold text-brand-black">{assignment.pollingStation.name}</h4>
+              <p className="mt-1 text-sm text-gray-600">{assignment.pollingStation.ward} Ward · {assignment.constituency} Constituency · {assignment.county} County</p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-brand-yellow bg-brand-yellow/10 p-5 text-sm text-gray-700"><strong>Station assignment pending:</strong> Your polling station has not yet been approved. Result reporting remains unavailable until an official Turbo station is assigned.</div>
+          )}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <PollingStep icon="📚" title="Training" detail="Training schedule and materials will appear here." />
+            <PollingStep icon="📍" title="Check-in" detail="Election-day check-in opens closer to polling day." />
+            <PollingStep icon="🔒" title="Private evidence" detail="Result forms are visible to authorized admins only." />
+          </div>
+        </div>
+      </section>
+
+      {assignment.pollingStation && initialResult && (
+        <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="section-label mb-1">Result submission</p><h3 className="text-xl font-extrabold">Agent-reported station result</h3></div><span className={`rounded px-3 py-1 text-xs font-bold ${resultStatusStyle(initialResult.status)}`}>{initialResult.status.replace('_', ' ')}</span></div>
+          <p className="mt-3 text-sm text-gray-600">Submitted {new Date(initialResult.submittedAt).toLocaleString()}. The campaign team must verify this private report against the official form before using it operationally.</p>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3"><ReportMetric label="Valid votes" value={initialResult.validVotes} /><ReportMetric label="Rejected votes" value={initialResult.rejectedVotes} /><ReportMetric label="Evidence files" value={initialResult.attachments.length} /></div>
+          {initialResult.reviewNote && <div className="mt-4 rounded-xl bg-blue-50 p-4 text-sm text-blue-900"><strong>Admin review note:</strong> {initialResult.reviewNote}</div>}
+        </section>
+      )}
+
+      {assignment.pollingStation && !initialResult && (
+        <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-4"><p className="section-label mb-1">Election-day result report</p><h3 className="text-xl font-extrabold">Submit counted station results</h3><p className="mt-2 text-sm leading-relaxed text-gray-600">Enter counts exactly as recorded on the official station form. This is an internal agent report, not a public or official declaration. Submit only once counts are final and form evidence is available.</p></div>
+          {message && <div className="mb-4 rounded-lg border border-brand-yellow bg-brand-yellow/10 p-3 text-sm font-semibold text-gray-700">{message}</div>}
+          {candidates.length === 0 ? <div className="rounded-xl border border-dashed p-5 text-sm text-gray-500">Candidate list is not configured yet. The campaign administrator must add the election candidates before agents can submit results.</div> : (
+            <form onSubmit={submitResult} className="space-y-4">
+              <div className="overflow-hidden rounded-xl border"><table className="w-full text-sm"><thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">Candidate</th><th className="px-4 py-3 text-right">Counted votes</th></tr></thead><tbody>{candidates.map(candidate => <tr key={candidate.id} className="border-t"><td className="px-4 py-3"><p className="font-semibold">{candidate.name}</p>{candidate.party && <p className="text-xs text-gray-500">{candidate.party}</p>}</td><td className="px-4 py-3 text-right"><input required type="number" min="0" value={votes[candidate.id] || ''} onChange={e => setVotes({ ...votes, [candidate.id]: e.target.value })} className="w-28 rounded border px-3 py-2 text-right outline-none focus:border-brand-yellow" /></td></tr>)}</tbody></table></div>
+              <div className="grid gap-4 sm:grid-cols-2"><FieldNumber label="Valid votes total" value={validVotes} onChange={setValidVotes} /><FieldNumber label="Rejected votes" value={rejectedVotes} onChange={setRejectedVotes} /></div>
+              <p className={`text-sm font-semibold ${Number(validVotes || 0) === totalCandidateVotes ? 'text-green-700' : 'text-red-600'}`}>Candidate total: {totalCandidateVotes} · Valid votes entered: {validVotes || 0}</p>
+              <div><label className="mb-1 block text-sm font-semibold text-gray-700">Official counted-results form photo *</label><input required type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setFormPhoto(e.target.files?.[0] || null)} className="w-full rounded-lg border p-2 text-sm" /><p className="mt-1 text-xs text-gray-500">JPEG, PNG, or WebP, max 5MB. This file is stored privately for admin review.</p></div>
+              <div><label className="mb-1 block text-sm font-semibold text-gray-700">Observation notes (optional)</label><textarea maxLength={2000} rows={3} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Only official process observations. Do not include voter identities or ballot photos." className="w-full rounded-lg border-2 border-gray-200 px-4 py-3 outline-none focus:border-brand-yellow" /></div>
+              <button type="submit" disabled={submitting || !formPhoto || Number(validVotes || 0) !== totalCandidateVotes} className={`w-full rounded-xl py-3.5 text-sm font-extrabold ${submitting || !formPhoto || Number(validVotes || 0) !== totalCandidateVotes ? 'bg-gray-200 text-gray-400' : 'bg-blue-700 text-white hover:bg-blue-800'}`}>{submitting ? 'Submitting privately…' : 'Submit private result report'}</button>
+            </form>
+          )}
+        </section>
+      )}
+    </div>
   );
 }
 

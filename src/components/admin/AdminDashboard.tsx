@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'pollingStations' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
+type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'pollingStations' | 'electionResults' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
 
 interface Props {
   token: string;
@@ -45,6 +45,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
     { id: 'stipends',  label: 'Stipends',     icon: '📶' },
     { id: 'mobilizerReports', label: 'Mobilizer Reports', icon: '📣' },
     { id: 'pollingStations', label: 'Polling Stations', icon: '🗳️' },
+    { id: 'electionResults', label: 'Result Review', icon: '📑' },
     { id: 'volunteers',label: 'Volunteers',   icon: '👥' },
     { id: 'orders',    label: 'Orders',       icon: '📦' },
     { id: 'products',  label: 'Products',     icon: '🏪' },
@@ -110,6 +111,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
           {activeTab === 'stipends' && <StipendsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'mobilizerReports' && <MobilizerReportsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'pollingStations' && <PollingStationsPanel headers={headers} onLogout={onLogout} />}
+          {activeTab === 'electionResults' && <ElectionResultsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'volunteers' && <VolunteersPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'orders' && <OrdersPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'news' && <NewsPanel headers={headers} onLogout={onLogout} />}
@@ -638,6 +640,78 @@ function PollingStationsPanel({ headers, onLogout }: { headers: any; onLogout: (
             <tbody>{stations.map(station => <tr key={station.id} className={`border-b ${station.validWard === false ? 'bg-red-50' : station.approvalStatus === 'pending' ? 'bg-yellow-50' : ''}`}><td className="px-4 py-3 font-medium">{station.name}{station.validWard === false && <p className="mt-1 text-xs font-semibold text-red-600">Invalid ward: not selectable by applicants</p>}{station.approvalStatus === 'pending' && <p className="mt-1 text-xs text-yellow-700">Proposed by: {station.proposedByEmail || 'applicant'}</p>}</td><td className="px-4 py-3">{station.ward}</td><td className="px-4 py-3 text-xs">{station.county} / {station.constituency}</td><td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${station.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' : station.approvalStatus === 'rejected' ? 'bg-red-100 text-red-700' : station.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>{station.approvalStatus === 'pending' ? 'pending approval' : station.approvalStatus === 'rejected' ? 'rejected' : station.active ? 'active' : 'inactive'}</span></td><td className="px-4 py-3">{station.approvalStatus === 'pending' ? <div className="flex gap-2"><button onClick={() => reviewProposal(station, 'approve')} className="text-xs font-semibold text-green-700 hover:underline">Approve</button><button onClick={() => reviewProposal(station, 'reject')} className="text-xs text-red-600 hover:underline">Reject</button></div> : station.approvalStatus === 'rejected' ? <button onClick={() => reviewProposal(station, 'approve')} className="text-xs font-semibold text-brand-green hover:underline">Approve</button> : <button onClick={() => setActive(station, !station.active)} className="text-xs font-semibold text-brand-green hover:underline">{station.active ? 'Deactivate' : 'Activate'}</button>}</td></tr>)}</tbody>
           </table>
         </div>
+      )}
+    </div>
+  );
+}
+
+// --- Private election result review ---
+function ElectionResultsPanel({ headers, onLogout }: { headers: any; onLogout: () => void }) {
+  const [view, setView] = useState<'candidates' | 'reports'>('candidates');
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
+  const [candidateName, setCandidateName] = useState('');
+  const [candidateParty, setCandidateParty] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const loadCandidates = () => fetch('/api/admin/election-candidates?includeInactive=true', { headers })
+    .then(res => { if (res.status === 401) { onLogout(); return []; } return res.json(); })
+    .then(data => setCandidates(data || []));
+  const loadReports = () => fetch('/api/admin/polling-results', { headers })
+    .then(res => { if (res.status === 401) { onLogout(); return []; } return res.json(); })
+    .then(data => setReports(data || []));
+
+  useEffect(() => { loadCandidates(); loadReports(); }, []);
+
+  const addCandidate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!candidateName.trim() || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/election-candidates', { method: 'POST', headers, body: JSON.stringify({ name: candidateName.trim(), party: candidateParty.trim() }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(data.message || 'Could not add candidate.'); return; }
+      setCandidates(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setCandidateName(''); setCandidateParty('');
+    } finally { setSaving(false); }
+  };
+
+  const toggleCandidate = async (candidate: any) => {
+    const res = await fetch(`/api/admin/election-candidates/${candidate.id}`, { method: 'PATCH', headers, body: JSON.stringify({ active: !candidate.active }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(data.message || 'Could not update candidate.'); return; }
+    setCandidates(prev => prev.map(item => item.id === candidate.id ? data : item));
+  };
+
+  const reviewResult = async (report: any, action: 'review' | 'verify' | 'dispute') => {
+    const note = prompt(`Optional review note for ${action}:`, report.reviewNote || '') || '';
+    const res = await fetch(`/api/admin/polling-results/${report.id}`, { method: 'PATCH', headers, body: JSON.stringify({ action, reviewNote: note }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(data.message || 'Could not update report.'); return; }
+    setReports(prev => prev.map(item => item.id === report.id ? { ...item, ...data } : item));
+  };
+
+  const viewEvidence = async (report: any, attachment: any) => {
+    const res = await fetch(`/api/admin/polling-results/${report.id}/attachments/${attachment.id}`, { headers });
+    if (!res.ok) { alert('Could not load private result form.'); return; }
+    const url = URL.createObjectURL(await res.blob());
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
+  const resultStyle = (status: string) => status === 'verified' ? 'bg-green-100 text-green-700' : status === 'disputed' ? 'bg-red-100 text-red-700' : status === 'under_review' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700';
+
+  return (
+    <div>
+      <div className="mb-6"><h2 className="text-2xl font-bold text-gray-900">Private election result operations</h2><p className="mt-1 text-sm text-gray-500">Agent-reported station results and result-form photos are private evidence. They are not official public declarations and must be verified before operational use.</p></div>
+      <div className="mb-5 flex rounded-lg border bg-white p-1 text-sm font-semibold"><button onClick={() => setView('candidates')} className={`rounded-md px-4 py-2 ${view === 'candidates' ? 'bg-brand-green text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Candidate registry</button><button onClick={() => setView('reports')} className={`rounded-md px-4 py-2 ${view === 'reports' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Submitted results ({reports.length})</button></div>
+      {view === 'candidates' ? (
+        <div className="space-y-6">
+          <section className="rounded-xl border border-blue-200 bg-blue-50 p-5"><h3 className="font-extrabold text-brand-black">Add candidate to reporting form</h3><p className="mt-1 text-xs text-gray-600">Add every candidate exactly as they should appear on the official counted-results form before allowing agents to submit results.</p><form onSubmit={addCandidate} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"><input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder="Candidate name" className="rounded-lg border px-3 py-2 text-sm" /><input value={candidateParty} onChange={e => setCandidateParty(e.target.value)} placeholder="Party / affiliation (optional)" className="rounded-lg border px-3 py-2 text-sm" /><button disabled={saving} className="rounded-lg bg-brand-green px-5 py-2 text-sm font-bold text-white">{saving ? 'Adding…' : 'Add candidate'}</button></form></section>
+          {candidates.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No candidates configured. Polling agents cannot submit results until the complete candidate list is entered.</div> : <div className="overflow-x-auto rounded-xl border bg-white"><table className="w-full text-sm"><thead className="border-b bg-gray-50"><tr><th className="px-4 py-3 text-left">Candidate</th><th className="px-4 py-3 text-left">Party</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-left">Action</th></tr></thead><tbody>{candidates.map(candidate => <tr key={candidate.id} className="border-b"><td className="px-4 py-3 font-medium">{candidate.name}</td><td className="px-4 py-3">{candidate.party || '—'}</td><td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${candidate.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>{candidate.active ? 'active' : 'inactive'}</span></td><td className="px-4 py-3"><button onClick={() => toggleCandidate(candidate)} className="text-xs font-semibold text-brand-green hover:underline">{candidate.active ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody></table></div>}
+        </div>
+      ) : (
+        reports.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No polling result reports submitted yet.</div> : <div className="space-y-5">{reports.map(report => { const votes = (() => { try { return JSON.parse(report.candidateVotesJson); } catch { return []; } })(); return <article key={report.id} className="rounded-xl border bg-white p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-bold text-gray-900">{report.pollingStation?.name || 'Unknown station'}</p><p className="mt-1 text-xs text-gray-500">{report.pollingStation?.ward} Ward · Agent: {report.assignment?.account?.name || 'Unknown'} · Submitted {new Date(report.submittedAt).toLocaleString()}</p></div><span className={`rounded px-3 py-1 text-xs font-bold ${resultStyle(report.status)}`}>{report.status.replace('_', ' ')}</span></div><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3"><div className="rounded-lg bg-blue-50 p-3 text-center"><p className="text-xl font-extrabold text-blue-700">{report.validVotes}</p><p className="text-[11px] font-semibold text-gray-500">Valid votes</p></div><div className="rounded-lg bg-blue-50 p-3 text-center"><p className="text-xl font-extrabold text-blue-700">{report.rejectedVotes}</p><p className="text-[11px] font-semibold text-gray-500">Rejected votes</p></div><div className="rounded-lg bg-blue-50 p-3 text-center"><p className="text-xl font-extrabold text-blue-700">{report.attachments.length}</p><p className="text-[11px] font-semibold text-gray-500">Private forms</p></div></div><div className="mt-4 overflow-x-auto rounded-lg border"><table className="w-full text-xs"><thead className="bg-gray-50"><tr><th className="px-3 py-2 text-left">Candidate</th><th className="px-3 py-2 text-left">Party</th><th className="px-3 py-2 text-right">Reported votes</th></tr></thead><tbody>{votes.map((vote: any) => <tr key={vote.candidateId} className="border-t"><td className="px-3 py-2">{vote.candidateName}</td><td className="px-3 py-2">{vote.party || '—'}</td><td className="px-3 py-2 text-right font-semibold">{vote.votes}</td></tr>)}</tbody></table></div>{report.notes && <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm"><strong>Agent observations:</strong> {report.notes}</div>}{report.reviewNote && <div className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-900"><strong>Admin review note:</strong> {report.reviewNote}</div>}<div className="mt-4 flex flex-wrap gap-3 text-sm">{report.attachments.map((attachment: any) => <button key={attachment.id} onClick={() => viewEvidence(report, attachment)} className="font-semibold text-blue-700 hover:underline">🖼️ View private form</button>)}<button onClick={() => reviewResult(report, 'review')} className="font-semibold text-blue-700 hover:underline">Mark under review</button><button onClick={() => reviewResult(report, 'verify')} className="font-semibold text-green-700 hover:underline">Verify</button><button onClick={() => reviewResult(report, 'dispute')} className="font-semibold text-red-600 hover:underline">Dispute</button></div></article>; })}</div>
       )}
     </div>
   );
