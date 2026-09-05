@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
+import CandidateAvatar from '@/components/CandidateAvatar';
 
 interface CandidateTotal { id: string; name: string; party: string | null; imageUrl: string | null; votes: number; }
 interface StationResult { station: string; ward: string; validVotes: number; rejectedVotes: number; verifiedAt: string; }
@@ -50,7 +51,7 @@ export default function ResultsPage() {
             <section className="rounded-2xl border bg-white p-6 shadow-sm">
               <div className="mb-5"><p className="section-label mb-1">Aggregate from verified stations</p><h2 className="text-2xl font-extrabold">Candidate vote totals</h2><p className="mt-1 text-xs text-gray-500">Only currently active candidates are shown in this breakdown.</p></div>
               <div className="space-y-4">
-                {results.candidates.map(candidate => <div key={candidate.id}><div className="mb-1 flex justify-between gap-3 text-sm"><div className="flex items-center gap-2"><ResultCandidateAvatar candidate={candidate} /><span className="font-bold">{candidate.name}{candidate.party && <span className="ml-2 font-normal text-gray-500">{candidate.party}</span>}</span></div><span className="font-extrabold">{candidate.votes.toLocaleString()}</span></div><div className="h-3 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-brand-green" style={{ width: `${(candidate.votes / maxVotes) * 100}%` }} /></div></div>)}
+                {results.candidates.map(candidate => <div key={candidate.id}><div className="mb-1 flex justify-between gap-3 text-sm"><div className="flex items-center gap-2"><CandidateAvatar candidate={candidate} /><span className="font-bold">{candidate.name}{candidate.party && <span className="ml-2 font-normal text-gray-500">{candidate.party}</span>}</span></div><span className="font-extrabold">{candidate.votes.toLocaleString()}</span></div><div className="h-3 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-brand-green" style={{ width: `${(candidate.votes / maxVotes) * 100}%` }} /></div></div>)}
               </div>
             </section>
 
@@ -67,13 +68,4 @@ export default function ResultsPage() {
 
 function Metric({ label, value, icon, compact = false }: { label: string; value: string | number; icon: string; compact?: boolean }) {
   return <div className="rounded-xl border bg-white p-5 shadow-sm"><div className="text-2xl">{icon}</div><p className={`mt-2 font-extrabold text-brand-black ${compact ? 'text-sm' : 'text-2xl'}`}>{value}</p><p className="mt-1 text-xs font-semibold text-gray-500">{label}</p></div>;
-}
-
-function ResultCandidateAvatar({ candidate }: { candidate: CandidateTotal }) {
-  const [failed, setFailed] = useState(false);
-  const initials = candidate.name.split(' ').filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?';
-  if (candidate.imageUrl && !failed) {
-    return <img src={candidate.imageUrl} alt={candidate.name} onError={() => setFailed(true)} className="h-8 w-8 rounded-full border border-gray-200 object-cover" />;
-  }
-  return <span aria-label={`${candidate.name} placeholder`} className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-yellow text-xs font-extrabold text-brand-black">{initials}</span>;
 }

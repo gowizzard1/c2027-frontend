@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import CandidateAvatar from '@/components/CandidateAvatar';
 
 type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'pollingStations' | 'electionResults' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
 
@@ -764,16 +765,6 @@ function ElectionResultsPanel({ headers, onLogout }: { headers: any; onLogout: (
       )}
     </div>
   );
-}
-
-function CandidateAvatar({ candidate, size = 'small' }: { candidate: { name: string; imageUrl?: string | null }; size?: 'small' | 'large' }) {
-  const [failed, setFailed] = useState(false);
-  const initials = candidate.name.split(' ').filter(Boolean).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase() || '?';
-  const dimensions = size === 'large' ? 'h-14 w-14 text-lg' : 'h-9 w-9 text-xs';
-  if (candidate.imageUrl && !failed) {
-    return <img src={candidate.imageUrl} alt={candidate.name} onError={() => setFailed(true)} className={`${dimensions} shrink-0 rounded-full object-cover border border-gray-200`} />;
-  }
-  return <span aria-label={`${candidate.name} placeholder`} className={`flex ${dimensions} shrink-0 items-center justify-center rounded-full bg-brand-yellow font-extrabold text-brand-black`}>{initials}</span>;
 }
 
 // --- Volunteers Panel ---
