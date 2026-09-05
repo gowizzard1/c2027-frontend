@@ -61,7 +61,8 @@ export default function VolunteerPage() {
       if (res.ok) {
         setSubmitted(true);
       } else {
-        alert('Registration failed. Please try again.');
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || 'Registration failed. Please try again.');
       }
     } catch {
       alert('An error occurred. Please try again.');

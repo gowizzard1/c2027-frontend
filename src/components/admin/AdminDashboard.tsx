@@ -410,7 +410,7 @@ function StipendsPanel({ headers, onLogout }: { headers: any; onLogout: () => vo
     if (action === 'mark_paid') {
       paymentRef = prompt('Optional: enter the manual M-Pesa/payment reference:', '') || '';
     }
-    if (action === 'reject' && !confirm(`Reject this stipend request from ${request.volunteer?.name || 'this volunteer'}?`)) return;
+    if (action === 'reject' && !confirm(`Reject this stipend request from ${request.account?.name || 'this volunteer'}?`)) return;
     setUpdatingId(request.id);
     try {
       const res = await fetch(`/api/admin/stipend-requests/${request.id}`, {
@@ -455,12 +455,12 @@ function StipendsPanel({ headers, onLogout }: { headers: any; onLogout: () => vo
             </thead>
             <tbody>
               {requests.map(request => {
-                const volunteer = request.volunteer;
+                const account = request.account;
                 const busy = updatingId === request.id;
                 return (
                   <tr key={request.id} className="border-b align-top hover:bg-gray-50">
-                    <td className="px-4 py-3"><p className="font-medium">{volunteer?.name || 'Deleted volunteer'}</p><p className="text-xs text-gray-500">{volunteer?.role?.replace('_', ' ') || '—'}</p></td>
-                    <td className="px-4 py-3 text-xs"><p>{volunteer?.phone || '—'}</p><p className="mt-1 text-gray-500">{volunteer?.email || '—'}</p></td>
+                    <td className="px-4 py-3"><p className="font-medium">{account?.name || 'Unmapped legacy account'}</p><p className="text-xs text-gray-500">Person-level stipend</p></td>
+                    <td className="px-4 py-3 text-xs"><p>{account?.phone || '—'}</p><p className="mt-1 text-gray-500">{account?.email || '—'}</p></td>
                     <td className="px-4 py-3 text-xs text-gray-600">{new Date(request.requestedAt).toLocaleString()}</td>
                     <td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${statusStyle(request.status)}`}>{request.status}</span></td>
                     <td className="px-4 py-3 text-xs text-gray-600">
@@ -522,14 +522,15 @@ function MobilizerReportsPanel({ headers, onLogout }: { headers: any; onLogout: 
       {reports.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No mobilizer reports submitted yet.</div> : (
         <div className="space-y-4">
           {reports.map(report => {
-            const volunteer = report.volunteer;
+            const assignment = report.assignment;
+            const account = assignment?.account;
             const busy = updatingId === report.id;
             return (
               <article key={report.id} className="rounded-xl border bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="font-bold text-gray-900">{volunteer?.name || 'Deleted volunteer'}</p>
-                    <p className="mt-1 text-xs text-gray-500">{volunteer ? `${volunteer.ward}, ${volunteer.constituency} · ${volunteer.phone}` : 'Volunteer record unavailable'}</p>
+                    <p className="font-bold text-gray-900">{account?.name || 'Unmapped legacy account'}</p>
+                    <p className="mt-1 text-xs text-gray-500">{assignment ? `${assignment.ward}, ${assignment.constituency} · ${account?.phone || '—'}` : 'Mobilizer assignment unavailable'}</p>
                   </div>
                   <div className="flex items-center gap-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${statusStyle(report.status)}`}>{report.status}</span><span className="text-xs text-gray-400">Week of {new Date(report.periodStart).toLocaleDateString()}</span></div>
                 </div>
@@ -563,7 +564,7 @@ function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => 
 
   useEffect(() => {
     const query = view === 'archived' ? '?archived=true' : '';
-    fetch(`/api/admin/volunteers${query}`, { headers })
+    fetch(`/api/admin/volunteer-accounts${query}`, { headers })
       .then(res => { if (res.status === 401) { onLogout(); return []; } return res.json(); })
       .then(data => setVolunteers(data || []))
       .catch(() => setVolunteers([]));
@@ -577,17 +578,17 @@ function VolunteersPanel({ headers, onLogout }: { headers: any; onLogout: () => 
 
   const formatDate = (value?: string) => value ? new Date(value).toLocaleString() : '—';
 
-  const updateStatus = async (id: string, status: 'approved' | 'rejected' | 'suspended') => {
-    const res = await fetch(`/api/admin/volunteers/${id}`, {
+  const updateStatus = async (account: any, assignment: any, status: 'approved' | 'rejected' | 'suspended') => {
+    const res = await fetch(`/api/admin/volunteer-assignments/${assignment.id}`, {
       method: 'PATCH', headers, body: JSON.stringify({ status }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data.message || 'Could not update volunteer status.');
+      alert(data.message || 'Could not update role status.');
       return;
     }
     const updated = await res.json();
-    setVolunteers(prev => prev.map(v => v.id === id ? { ...v, ...updated } : v));
+    setVolunteers(prev => prev.map(item => item.id === account.id ? { ...item, assignments: item.assignments.map((role: any) => role.id === assignment.id ? { ...role, ...updated } : role) } : item));
   };
 
   const buildInviteMessage = (v: any) => {
@@ -622,7 +623,7 @@ See you inside — together we rise! 🇰🇪`;
 
   const resetAccess = async (v: any) => {
     if (!confirm(`Reset access for ${v.name}? This creates a new invite link and clears their current password.`)) return;
-    const res = await fetch(`/api/admin/volunteers/${v.id}/reset-access`, { method: 'POST', headers });
+    const res = await fetch(`/api/admin/volunteer-accounts/${v.id}/reset-access`, { method: 'POST', headers });
     if (res.ok) {
       const data = await res.json();
       setVolunteers(prev => prev.map(x => x.id === v.id ? { ...x, accessToken: data.accessToken, activatedAt: null, inviteDeliveryStatus: 'not_sent' } : x));
@@ -632,25 +633,25 @@ See you inside — together we rise! 🇰🇪`;
     }
   };
 
-  const archiveVolunteer = async (v: any) => {
-    if (!confirm(`Archive ${v.name}? They will be removed from the active list and lose portal access. You can restore them later.`)) return;
-    const res = await fetch(`/api/admin/volunteers/${v.id}/archive`, { method: 'POST', headers });
+  const archiveAssignment = async (account: any, assignment: any) => {
+    if (!confirm(`Archive ${roleLabels[assignment.role] || assignment.role} for ${account.name}? That role will lose portal access. You can restore it later.`)) return;
+    const res = await fetch(`/api/admin/volunteer-assignments/${assignment.id}/archive`, { method: 'POST', headers });
     if (res.ok) {
-      setVolunteers(prev => prev.filter(item => item.id !== v.id));
+      setVolunteers(prev => prev.map(item => item.id === account.id ? { ...item, assignments: item.assignments.filter((role: any) => role.id !== assignment.id) } : item).filter(item => item.assignments.length > 0));
     } else {
       const data = await res.json().catch(() => ({}));
-      alert(data.message || 'Could not archive this volunteer.');
+      alert(data.message || 'Could not archive this role.');
     }
   };
 
-  const restoreVolunteer = async (v: any) => {
-    const res = await fetch(`/api/admin/volunteers/${v.id}/restore`, { method: 'POST', headers });
+  const restoreAssignment = async (account: any, assignment: any) => {
+    const res = await fetch(`/api/admin/volunteer-assignments/${assignment.id}/restore`, { method: 'POST', headers });
     if (res.ok) {
-      setVolunteers(prev => prev.filter(item => item.id !== v.id));
-      alert(`${v.name} was restored to ${v.statusBeforeArchive || 'pending'} status.`);
+      setVolunteers(prev => prev.map(item => item.id === account.id ? { ...item, assignments: item.assignments.filter((role: any) => role.id !== assignment.id) } : item).filter(item => item.assignments.length > 0));
+      alert(`${roleLabels[assignment.role] || assignment.role} was restored to ${assignment.statusBeforeArchive || 'pending'} status.`);
     } else {
       const data = await res.json().catch(() => ({}));
-      alert(data.message || 'Could not restore this volunteer.');
+      alert(data.message || 'Could not restore this role.');
     }
   };
 
@@ -705,35 +706,38 @@ See you inside — together we rise! 🇰🇪`;
               </tr>
             </thead>
             <tbody>
-              {volunteers.map(v => (
-                <tr key={v.id} className="border-b align-top hover:bg-gray-50">
-                  <td className="px-4 py-3"><p className="font-medium">{v.name}</p><p className="mt-0.5 text-xs text-gray-500">{v.email}</p></td>
-                  <td className="px-4 py-3">{roleLabels[v.role] || v.role}</td>
-                  <td className="px-4 py-3">{v.phone}</td>
-                  <td className="px-4 py-3 text-xs">{v.ward}, {v.constituency}</td>
-                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs font-medium ${statusStyle(v.status)}`}>{v.status}</span>{v.archivedAt && <p className="mt-1 text-xs text-gray-400">{formatDate(v.archivedAt)}</p>}</td>
+              {volunteers.flatMap(account => account.assignments.map((assignment: any, index: number) => (
+                <tr key={assignment.id} className="border-b align-top hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    {index === 0 ? <><p className="font-medium">{account.name}</p><p className="mt-0.5 text-xs text-gray-500">{account.email}</p></> : <p className="text-xs text-gray-400">Same account ↑</p>}
+                  </td>
+                  <td className="px-4 py-3">{roleLabels[assignment.role] || assignment.role}</td>
+                  <td className="px-4 py-3">{index === 0 ? account.phone : '—'}</td>
+                  <td className="px-4 py-3 text-xs">{assignment.ward}, {assignment.constituency}</td>
+                  <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs font-medium ${statusStyle(assignment.status)}`}>{assignment.status}</span>{assignment.archivedAt && <p className="mt-1 text-xs text-gray-400">{formatDate(assignment.archivedAt)}</p>}</td>
                   <td className="min-w-[185px] px-4 py-3 text-xs">
-                    {v.activatedAt ? <><p className="font-semibold text-green-700">✓ Account activated</p><p className="mt-1 text-gray-500">Last login: {formatDate(v.lastLoginAt)}</p></>
-                    : v.inviteDeliveryStatus === 'failed' ? <><p className="font-semibold text-red-600">⚠ Invite email failed</p><p className="mt-1 text-gray-500">Attempt: {formatDate(v.inviteFailedAt)}</p></>
-                    : v.inviteDeliveryStatus === 'sent' ? <><p className="font-semibold text-blue-700">✉ Invite accepted for delivery</p><p className="mt-1 text-gray-500">Sent: {formatDate(v.inviteSentAt)}</p></>
-                    : <p className="text-gray-500">No invite sent yet</p>}
-                    {v.loginFailureCount > 0 && <p className="mt-1 font-semibold text-amber-700">⚠ {v.loginFailureCount} failed login{v.loginFailureCount === 1 ? '' : 's'} · {formatDate(v.lastLoginFailedAt)}</p>}
+                    {index === 0 && (account.activatedAt ? <><p className="font-semibold text-green-700">✓ Account activated</p><p className="mt-1 text-gray-500">Last login: {formatDate(account.lastLoginAt)}</p></>
+                    : account.inviteDeliveryStatus === 'failed' ? <><p className="font-semibold text-red-600">⚠ Invite email failed</p><p className="mt-1 text-gray-500">Attempt: {formatDate(account.inviteFailedAt)}</p></>
+                    : account.inviteDeliveryStatus === 'sent' ? <><p className="font-semibold text-blue-700">✉ Invite accepted for delivery</p><p className="mt-1 text-gray-500">Sent: {formatDate(account.inviteSentAt)}</p></>
+                    : <p className="text-gray-500">No invite sent yet</p>)}
+                    {index === 0 && account.loginFailureCount > 0 && <p className="mt-1 font-semibold text-amber-700">⚠ {account.loginFailureCount} failed login{account.loginFailureCount === 1 ? '' : 's'} · {formatDate(account.lastLoginFailedAt)}</p>}
                   </td>
                   <td className="min-w-[180px] px-4 py-3">
                     {view === 'archived' ? (
-                      <button onClick={() => restoreVolunteer(v)} className="text-xs font-semibold text-brand-green hover:underline">↩ Restore</button>
+                      <button onClick={() => restoreAssignment(account, assignment)} className="text-xs font-semibold text-brand-green hover:underline">↩ Restore role</button>
                     ) : (
                       <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs">
-                        {v.status === 'pending' && <><button onClick={() => updateStatus(v.id, 'approved')} className="text-green-600 hover:underline">Approve</button><button onClick={() => updateStatus(v.id, 'rejected')} className="text-red-600 hover:underline">Reject</button></>}
-                        {v.status === 'rejected' && <button onClick={() => updateStatus(v.id, 'approved')} className="text-green-600 hover:underline">Approve</button>}
-                        {v.status === 'approved' && <><button onClick={() => updateStatus(v.id, 'suspended')} className="text-orange-600 hover:underline">Suspend</button><button onClick={() => copyInvite(v)} className="font-semibold text-brand-green hover:underline">{copiedId === v.id ? '✓ Copied' : '✉️ Copy invite'}</button><button onClick={() => resetAccess(v)} className="text-gray-500 hover:underline">Reset access</button></>}
-                        {v.status === 'suspended' && <button onClick={() => updateStatus(v.id, 'approved')} className="text-green-600 hover:underline">Unsuspend</button>}
-                        <button onClick={() => archiveVolunteer(v)} className="text-gray-500 hover:text-gray-800 hover:underline">Archive</button>
+                        {assignment.status === 'pending' && <><button onClick={() => updateStatus(account, assignment, 'approved')} className="text-green-600 hover:underline">Approve</button><button onClick={() => updateStatus(account, assignment, 'rejected')} className="text-red-600 hover:underline">Reject</button></>}
+                        {assignment.status === 'rejected' && <button onClick={() => updateStatus(account, assignment, 'approved')} className="text-green-600 hover:underline">Approve</button>}
+                        {assignment.status === 'approved' && <button onClick={() => updateStatus(account, assignment, 'suspended')} className="text-orange-600 hover:underline">Suspend</button>}
+                        {assignment.status === 'suspended' && <button onClick={() => updateStatus(account, assignment, 'approved')} className="text-green-600 hover:underline">Unsuspend</button>}
+                        {index === 0 && assignment.status === 'approved' && <><button onClick={() => copyInvite(account)} className="font-semibold text-brand-green hover:underline">{copiedId === account.id ? '✓ Copied' : '✉️ Copy invite'}</button><button onClick={() => resetAccess(account)} className="text-gray-500 hover:underline">Reset account</button></>}
+                        <button onClick={() => archiveAssignment(account, assignment)} className="text-gray-500 hover:text-gray-800 hover:underline">Archive role</button>
                       </div>
                     )}
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>

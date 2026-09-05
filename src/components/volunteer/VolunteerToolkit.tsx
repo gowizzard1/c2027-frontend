@@ -10,6 +10,8 @@ export interface ToolkitData {
   ward: string;
   role: string;
   status: string;
+  selectedAssignmentId: string;
+  assignments: { id: string; role: string; status: string; county: string; constituency: string; ward: string }[];
   isSocialMedia: boolean;
   isApproved: boolean;
   approvedSocial: boolean;
@@ -94,6 +96,8 @@ export default function VolunteerToolkit({ data }: { data: ToolkitData }) {
         </div>
       </section>
 
+      {data.assignments.length > 1 && <RoleSwitcher data={data} />}
+
       {/* Account journey */}
       <section className="rounded-2xl border border-gray-100 bg-white p-5 sm:p-6 shadow-sm">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-2">
@@ -138,6 +142,51 @@ export default function VolunteerToolkit({ data }: { data: ToolkitData }) {
         </section>
       )}
     </div>
+  );
+}
+
+function RoleSwitcher({ data }: { data: ToolkitData }) {
+  const [switching, setSwitching] = useState(false);
+  const [error, setError] = useState('');
+  const activeAssignments = data.assignments.filter(assignment => assignment.status !== 'archived');
+
+  const switchRole = async (assignmentId: string) => {
+    if (assignmentId === data.selectedAssignmentId || switching) return;
+    const token = sessionStorage.getItem('campaign_volunteer_token');
+    if (!token) { setError('Your session expired. Please log in again.'); return; }
+    setSwitching(true); setError('');
+    try {
+      const response = await fetch('/api/volunteers/switch-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ assignmentId }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.token) {
+        setError(result.message || 'Could not switch roles.');
+        return;
+      }
+      sessionStorage.setItem('campaign_volunteer_token', result.token);
+      window.location.reload();
+    } catch {
+      setError('Connection error. Please try again.');
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  return (
+    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="section-label mb-1">Your roles</p><h3 className="text-lg font-extrabold">Switch volunteer workspace</h3></div><span className="text-xs text-gray-400">One account, multiple roles</span></div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {activeAssignments.map(assignment => {
+          const meta = roleMeta[assignment.role] || { label: assignment.role, icon: '🙋', color: 'bg-gray-100 text-gray-700' };
+          const selected = assignment.id === data.selectedAssignmentId;
+          return <button key={assignment.id} type="button" disabled={switching || assignment.status === 'suspended'} onClick={() => switchRole(assignment.id)} className={`rounded-xl border p-4 text-left transition-colors ${selected ? 'border-brand-green bg-green-50 ring-1 ring-brand-green' : assignment.status === 'suspended' ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-60' : 'border-gray-200 bg-white hover:border-brand-yellow'}`}><div className="flex items-center justify-between gap-2"><span className="text-xl">{meta.icon}</span>{selected && <span className="text-xs font-bold text-brand-green">Current</span>}</div><p className="mt-2 font-bold text-sm text-brand-black">{meta.label}</p><p className="mt-1 text-xs text-gray-500">{assignment.ward}, {assignment.constituency}</p><p className="mt-2 text-xs font-semibold capitalize text-gray-500">{assignment.status}</p></button>;
+        })}
+      </div>
+      {error && <p className="mt-3 text-sm font-semibold text-red-600">{error}</p>}
+    </section>
   );
 }
 
