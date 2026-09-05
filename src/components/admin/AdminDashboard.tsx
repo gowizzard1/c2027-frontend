@@ -652,6 +652,7 @@ function ElectionResultsPanel({ headers, onLogout }: { headers: any; onLogout: (
   const [reports, setReports] = useState<any[]>([]);
   const [candidateName, setCandidateName] = useState('');
   const [candidateParty, setCandidateParty] = useState('');
+  const [candidateImageUrl, setCandidateImageUrl] = useState('');
   const [saving, setSaving] = useState(false);
 
   const loadCandidates = () => fetch('/api/admin/election-candidates?includeInactive=true', { headers })
@@ -668,11 +669,11 @@ function ElectionResultsPanel({ headers, onLogout }: { headers: any; onLogout: (
     if (!candidateName.trim() || saving) return;
     setSaving(true);
     try {
-      const res = await fetch('/api/admin/election-candidates', { method: 'POST', headers, body: JSON.stringify({ name: candidateName.trim(), party: candidateParty.trim() }) });
+      const res = await fetch('/api/admin/election-candidates', { method: 'POST', headers, body: JSON.stringify({ name: candidateName.trim(), party: candidateParty.trim(), imageUrl: candidateImageUrl.trim() }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { alert(data.message || 'Could not add candidate.'); return; }
       setCandidates(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
-      setCandidateName(''); setCandidateParty('');
+      setCandidateName(''); setCandidateParty(''); setCandidateImageUrl('');
     } finally { setSaving(false); }
   };
 
@@ -680,6 +681,21 @@ function ElectionResultsPanel({ headers, onLogout }: { headers: any; onLogout: (
     const res = await fetch(`/api/admin/election-candidates/${candidate.id}`, { method: 'PATCH', headers, body: JSON.stringify({ active: !candidate.active }) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { alert(data.message || 'Could not update candidate.'); return; }
+    setCandidates(prev => prev.map(item => item.id === candidate.id ? data : item));
+  };
+
+  const archiveCandidate = async (candidate: any) => {
+    if (!confirm(`Archive ${candidate.name}? They will be removed from new polling-agent result forms but remain in historical verified totals.`)) return;
+    const res = await fetch(`/api/admin/election-candidates/${candidate.id}/archive`, { method: 'POST', headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(data.message || 'Could not archive candidate.'); return; }
+    setCandidates(prev => prev.map(item => item.id === candidate.id ? data : item));
+  };
+
+  const restoreCandidate = async (candidate: any) => {
+    const res = await fetch(`/api/admin/election-candidates/${candidate.id}/restore`, { method: 'POST', headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(data.message || 'Could not restore candidate.'); return; }
     setCandidates(prev => prev.map(item => item.id === candidate.id ? data : item));
   };
 
@@ -708,14 +724,24 @@ function ElectionResultsPanel({ headers, onLogout }: { headers: any; onLogout: (
       <div className="mb-5 flex rounded-lg border bg-white p-1 text-sm font-semibold"><button onClick={() => setView('candidates')} className={`rounded-md px-4 py-2 ${view === 'candidates' ? 'bg-brand-green text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Candidate registry</button><button onClick={() => setView('reports')} className={`rounded-md px-4 py-2 ${view === 'reports' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Submitted results ({reports.length})</button></div>
       {view === 'candidates' ? (
         <div className="space-y-6">
-          <section className="rounded-xl border border-blue-200 bg-blue-50 p-5"><h3 className="font-extrabold text-brand-black">Add candidate to reporting form</h3><p className="mt-1 text-xs text-gray-600">Add every candidate exactly as they should appear on the official counted-results form before allowing agents to submit results.</p><form onSubmit={addCandidate} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"><input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder="Candidate name" className="rounded-lg border px-3 py-2 text-sm" /><input value={candidateParty} onChange={e => setCandidateParty(e.target.value)} placeholder="Party / affiliation (optional)" className="rounded-lg border px-3 py-2 text-sm" /><button disabled={saving} className="rounded-lg bg-brand-green px-5 py-2 text-sm font-bold text-white">{saving ? 'Adding…' : 'Add candidate'}</button></form></section>
-          {candidates.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No candidates configured. Polling agents cannot submit results until the complete candidate list is entered.</div> : <div className="overflow-x-auto rounded-xl border bg-white"><table className="w-full text-sm"><thead className="border-b bg-gray-50"><tr><th className="px-4 py-3 text-left">Candidate</th><th className="px-4 py-3 text-left">Party</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-left">Action</th></tr></thead><tbody>{candidates.map(candidate => <tr key={candidate.id} className="border-b"><td className="px-4 py-3 font-medium">{candidate.name}</td><td className="px-4 py-3">{candidate.party || '—'}</td><td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${candidate.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>{candidate.active ? 'active' : 'inactive'}</span></td><td className="px-4 py-3"><button onClick={() => toggleCandidate(candidate)} className="text-xs font-semibold text-brand-green hover:underline">{candidate.active ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody></table></div>}
+          <section className="rounded-xl border border-blue-200 bg-blue-50 p-5"><h3 className="font-extrabold text-brand-black">Add candidate to reporting form</h3><p className="mt-1 text-xs text-gray-600">Add every candidate exactly as they should appear on the official counted-results form before allowing agents to submit results.</p><form onSubmit={addCandidate} className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder="Candidate name" className="rounded-lg border px-3 py-2 text-sm" /><input value={candidateParty} onChange={e => setCandidateParty(e.target.value)} placeholder="Party / affiliation (optional)" className="rounded-lg border px-3 py-2 text-sm" /><input value={candidateImageUrl} onChange={e => setCandidateImageUrl(e.target.value)} placeholder="Image URL (optional)" className="rounded-lg border px-3 py-2 text-sm" /><button disabled={saving} className="rounded-lg bg-brand-green px-5 py-2 text-sm font-bold text-white">{saving ? 'Adding…' : 'Add candidate'}</button></form></section>
+          {candidates.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No candidates configured. Polling agents cannot submit results until the complete candidate list is entered.</div> : <div className="overflow-x-auto rounded-xl border bg-white"><table className="w-full text-sm"><thead className="border-b bg-gray-50"><tr><th className="px-4 py-3 text-left">Candidate</th><th className="px-4 py-3 text-left">Party</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-left">Actions</th></tr></thead><tbody>{candidates.map(candidate => <tr key={candidate.id} className="border-b"><td className="px-4 py-3"><div className="flex items-center gap-3"><CandidateAvatar candidate={candidate} /><span className="font-medium">{candidate.name}</span></div></td><td className="px-4 py-3">{candidate.party || '—'}</td><td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-semibold ${candidate.archivedAt ? 'bg-gray-200 text-gray-600' : candidate.active ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{candidate.archivedAt ? 'archived' : candidate.active ? 'active' : 'inactive'}</span></td><td className="px-4 py-3"><div className="flex gap-3 text-xs">{candidate.archivedAt ? <button onClick={() => restoreCandidate(candidate)} className="font-semibold text-brand-green hover:underline">Restore</button> : <><button onClick={() => toggleCandidate(candidate)} className="font-semibold text-brand-green hover:underline">{candidate.active ? 'Deactivate' : 'Activate'}</button><button onClick={() => archiveCandidate(candidate)} className="text-gray-600 hover:underline">Archive</button></>}</div></td></tr>)}</tbody></table></div>}
         </div>
       ) : (
         reports.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No polling result reports submitted yet.</div> : <div className="space-y-5">{reports.map(report => { const votes = (() => { try { return JSON.parse(report.candidateVotesJson); } catch { return []; } })(); return <article key={report.id} className="rounded-xl border bg-white p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-bold text-gray-900">{report.pollingStation?.name || 'Unknown station'}</p><p className="mt-1 text-xs text-gray-500">{report.pollingStation?.ward} Ward · Agent: {report.assignment?.account?.name || 'Unknown'} · Submitted {new Date(report.submittedAt).toLocaleString()}</p></div><span className={`rounded px-3 py-1 text-xs font-bold ${resultStyle(report.status)}`}>{report.status.replace('_', ' ')}</span></div><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3"><div className="rounded-lg bg-blue-50 p-3 text-center"><p className="text-xl font-extrabold text-blue-700">{report.validVotes}</p><p className="text-[11px] font-semibold text-gray-500">Valid votes</p></div><div className="rounded-lg bg-blue-50 p-3 text-center"><p className="text-xl font-extrabold text-blue-700">{report.rejectedVotes}</p><p className="text-[11px] font-semibold text-gray-500">Rejected votes</p></div><div className="rounded-lg bg-blue-50 p-3 text-center"><p className="text-xl font-extrabold text-blue-700">{report.attachments.length}</p><p className="text-[11px] font-semibold text-gray-500">Private forms</p></div></div><div className="mt-4 overflow-x-auto rounded-lg border"><table className="w-full text-xs"><thead className="bg-gray-50"><tr><th className="px-3 py-2 text-left">Candidate</th><th className="px-3 py-2 text-left">Party</th><th className="px-3 py-2 text-right">Reported votes</th></tr></thead><tbody>{votes.map((vote: any) => <tr key={vote.candidateId} className="border-t"><td className="px-3 py-2">{vote.candidateName}</td><td className="px-3 py-2">{vote.party || '—'}</td><td className="px-3 py-2 text-right font-semibold">{vote.votes}</td></tr>)}</tbody></table></div>{report.notes && <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm"><strong>Agent observations:</strong> {report.notes}</div>}{report.reviewNote && <div className="mt-3 rounded-lg bg-green-50 p-3 text-sm text-green-900"><strong>Admin review note:</strong> {report.reviewNote}</div>}{report.archiveNote && <div className="mt-3 rounded-lg bg-gray-100 p-3 text-sm text-gray-700"><strong>Archive reason:</strong> {report.archiveNote}</div>}<div className="mt-4 flex flex-wrap gap-3 text-sm">{report.attachments.map((attachment: any) => <button key={attachment.id} onClick={() => viewEvidence(report, attachment)} className="font-semibold text-blue-700 hover:underline">🖼️ View private form</button>)}<button onClick={() => reviewResult(report, 'review')} className="font-semibold text-blue-700 hover:underline">Mark under review</button><button onClick={() => reviewResult(report, 'verify')} className="font-semibold text-green-700 hover:underline">Verify</button><button onClick={() => reviewResult(report, 'dispute')} className="font-semibold text-red-600 hover:underline">Dispute</button>{report.status !== 'archived' && <button onClick={() => reviewResult(report, 'archive')} className="font-semibold text-gray-600 hover:underline">Archive result</button>}</div></article>; })}</div>
       )}
     </div>
   );
+}
+
+function CandidateAvatar({ candidate, size = 'small' }: { candidate: { name: string; imageUrl?: string | null }; size?: 'small' | 'large' }) {
+  const [failed, setFailed] = useState(false);
+  const initials = candidate.name.split(' ').filter(Boolean).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase() || '?';
+  const dimensions = size === 'large' ? 'h-14 w-14 text-lg' : 'h-9 w-9 text-xs';
+  if (candidate.imageUrl && !failed) {
+    return <img src={candidate.imageUrl} alt={candidate.name} onError={() => setFailed(true)} className={`${dimensions} shrink-0 rounded-full object-cover border border-gray-200`} />;
+  }
+  return <span aria-label={`${candidate.name} placeholder`} className={`flex ${dimensions} shrink-0 items-center justify-center rounded-full bg-brand-yellow font-extrabold text-brand-black`}>{initials}</span>;
 }
 
 // --- Volunteers Panel ---

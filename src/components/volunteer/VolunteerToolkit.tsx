@@ -271,7 +271,7 @@ function RoleGuide({ role }: { role: { icon: string; label: string; nextStep: st
 }
 
 function PollingAgentHub({ assignment, initialResult }: { assignment: { county: string; constituency: string; ward: string; pollingStation: { id: string; name: string; ward: string } | null }; initialResult: PollingResult | null }) {
-  const [candidates, setCandidates] = useState<{ id: string; name: string; party?: string | null }[]>([]);
+  const [candidates, setCandidates] = useState<{ id: string; name: string; party?: string | null; imageUrl?: string | null }[]>([]);
   const [votes, setVotes] = useState<Record<string, string>>({});
   const [validVotes, setValidVotes] = useState('');
   const [rejectedVotes, setRejectedVotes] = useState('0');
@@ -365,7 +365,7 @@ function PollingAgentHub({ assignment, initialResult }: { assignment: { county: 
           {message && <div className="mb-4 rounded-lg border border-brand-yellow bg-brand-yellow/10 p-3 text-sm font-semibold text-gray-700">{message}</div>}
           {candidates.length === 0 ? <div className="rounded-xl border border-dashed p-5 text-sm text-gray-500">Candidate list is not configured yet. The campaign administrator must add the election candidates before agents can submit results.</div> : (
             <form onSubmit={submitResult} className="space-y-4">
-              <div className="overflow-hidden rounded-xl border"><table className="w-full text-sm"><thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">Candidate</th><th className="px-4 py-3 text-right">Counted votes</th></tr></thead><tbody>{candidates.map(candidate => <tr key={candidate.id} className="border-t"><td className="px-4 py-3"><p className="font-semibold">{candidate.name}</p>{candidate.party && <p className="text-xs text-gray-500">{candidate.party}</p>}</td><td className="px-4 py-3 text-right"><input required type="number" min="0" value={votes[candidate.id] || ''} onChange={e => setVotes({ ...votes, [candidate.id]: e.target.value })} className="w-28 rounded border px-3 py-2 text-right outline-none focus:border-brand-yellow" /></td></tr>)}</tbody></table></div>
+              <div className="overflow-hidden rounded-xl border"><table className="w-full text-sm"><thead className="bg-gray-50"><tr><th className="px-4 py-3 text-left">Candidate</th><th className="px-4 py-3 text-right">Counted votes</th></tr></thead><tbody>{candidates.map(candidate => <tr key={candidate.id} className="border-t"><td className="px-4 py-3"><div className="flex items-center gap-2"><PollingCandidateAvatar candidate={candidate} /><div><p className="font-semibold">{candidate.name}</p>{candidate.party && <p className="text-xs text-gray-500">{candidate.party}</p>}</div></div></td><td className="px-4 py-3 text-right"><input required type="number" min="0" value={votes[candidate.id] || ''} onChange={e => setVotes({ ...votes, [candidate.id]: e.target.value })} className="w-28 rounded border px-3 py-2 text-right outline-none focus:border-brand-yellow" /></td></tr>)}</tbody></table></div>
               <div className="grid gap-4 sm:grid-cols-2"><FieldNumber label="Valid votes total" value={validVotes} onChange={setValidVotes} /><FieldNumber label="Rejected votes" value={rejectedVotes} onChange={setRejectedVotes} /></div>
               <p className={`text-sm font-semibold ${Number(validVotes || 0) === totalCandidateVotes ? 'text-green-700' : 'text-red-600'}`}>Candidate total: {totalCandidateVotes} · Valid votes entered: {validVotes || 0}</p>
               <div><label className="mb-1 block text-sm font-semibold text-gray-700">Official counted-results form photo *</label><input required type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setFormPhoto(e.target.files?.[0] || null)} className="w-full rounded-lg border p-2 text-sm" /><p className="mt-1 text-xs text-gray-500">JPEG, PNG, or WebP, max 5MB. This file is stored privately for admin review.</p></div>
@@ -377,6 +377,13 @@ function PollingAgentHub({ assignment, initialResult }: { assignment: { county: 
       )}
     </div>
   );
+}
+
+function PollingCandidateAvatar({ candidate }: { candidate: { name: string; imageUrl?: string | null } }) {
+  const [failed, setFailed] = useState(false);
+  const initials = candidate.name.split(' ').filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || '?';
+  if (candidate.imageUrl && !failed) return <img src={candidate.imageUrl} alt={candidate.name} onError={() => setFailed(true)} className="h-8 w-8 shrink-0 rounded-full border border-gray-200 object-cover" />;
+  return <span aria-label={`${candidate.name} placeholder`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-xs font-extrabold text-brand-black">{initials}</span>;
 }
 
 function PollingStep({ icon, title, detail }: { icon: string; title: string; detail: string }) {
