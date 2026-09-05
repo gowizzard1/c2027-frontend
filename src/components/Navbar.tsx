@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
@@ -29,16 +30,20 @@ export default function Navbar() {
   const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href);
 
   return (
-    <nav className="bg-brand-yellow sticky top-0 z-50 shadow-md">
+    <nav className="sticky top-0 z-50 border-b border-brand-yellow/70 bg-brand-black shadow-lg shadow-black/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-[72px]">
 
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <span className="text-2xl">🇰🇪</span>
-            <span className="font-extrabold text-brand-black text-base hidden sm:inline">
-              {siteName}
-            </span>
+          {/* Campaign brand: black logo canvas blends into the black navigation bar. */}
+          <Link href="/" className="flex items-center shrink-0" aria-label={`${siteName} home`}>
+            <Image
+              src="/logo.png"
+              alt="IKM — Kirgit, Kipkeleny Tulwo, The Voice of Turbo"
+              width={96}
+              height={96}
+              priority
+              className="h-16 w-16 object-contain sm:h-[68px] sm:w-[68px]"
+            />
           </Link>
 
           {/* Desktop links */}
@@ -47,8 +52,8 @@ export default function Navbar() {
               <Link key={link.href} href={link.href}
                 className={`px-3 py-2 rounded-md text-sm font-bold transition-colors ${
                   isActive(link.href)
-                    ? 'bg-brand-black text-brand-yellow'
-                    : 'text-brand-black hover:bg-black/10'
+                    ? 'bg-brand-yellow text-brand-black'
+                    : 'text-white hover:bg-white/10 hover:text-brand-yellow'
                 }`}>
                 {link.label}
               </Link>
@@ -65,7 +70,7 @@ export default function Navbar() {
 
           {/* Mobile burger */}
           <button onClick={() => setIsOpen(!isOpen)}
-            className="lg:hidden p-2 text-brand-black rounded-md"
+            className="lg:hidden p-2 text-brand-yellow rounded-md hover:bg-white/10"
             aria-label="Toggle menu">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               {isOpen
@@ -77,18 +82,18 @@ export default function Navbar() {
 
         {/* Mobile menu */}
         {isOpen && (
-          <div className="lg:hidden border-t-2 border-black/10 py-3 space-y-1">
+          <div className="lg:hidden border-t border-white/10 py-3 space-y-1">
             {links.map(link => (
               <Link key={link.href} href={link.href} onClick={() => setIsOpen(false)}
                 className={`block px-3 py-2.5 rounded-md text-sm font-bold ${
                   isActive(link.href)
-                    ? 'bg-brand-black text-brand-yellow'
-                    : 'text-brand-black hover:bg-black/10'
+                    ? 'bg-brand-yellow text-brand-black'
+                    : 'text-white hover:bg-white/10 hover:text-brand-yellow'
                 }`}>
                 {link.label}
               </Link>
             ))}
-            <div className="flex gap-3 pt-2 border-t-2 border-black/10 mt-1">
+            <div className="flex gap-3 pt-2 border-t border-white/10 mt-1">
               <Link href="/donate" onClick={() => setIsOpen(false)}
                 className="flex-1 text-center bg-brand-green text-white font-bold py-2.5 rounded-lg text-sm">
                 💚 Donate

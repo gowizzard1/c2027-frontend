@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import CandidateAvatar from '@/components/CandidateAvatar';
+import CandidateManagementPanel from '@/components/admin/CandidateManagementPanel';
 
-type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'pollingStations' | 'electionResults' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
+type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'pollingStations' | 'candidateManagement' | 'electionResults' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
 
 interface Props {
   token: string;
@@ -46,6 +47,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
     { id: 'stipends',  label: 'Stipends',     icon: '📶' },
     { id: 'mobilizerReports', label: 'Mobilizer Reports', icon: '📣' },
     { id: 'pollingStations', label: 'Polling Stations', icon: '🗳️' },
+    { id: 'candidateManagement', label: 'Candidates', icon: '👤' },
     { id: 'electionResults', label: 'Result Review', icon: '📑' },
     { id: 'volunteers',label: 'Volunteers',   icon: '👥' },
     { id: 'orders',    label: 'Orders',       icon: '📦' },
@@ -112,6 +114,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
           {activeTab === 'stipends' && <StipendsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'mobilizerReports' && <MobilizerReportsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'pollingStations' && <PollingStationsPanel headers={headers} onLogout={onLogout} />}
+          {activeTab === 'candidateManagement' && <CandidateManagementPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'electionResults' && <ElectionResultsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'volunteers' && <VolunteersPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'orders' && <OrdersPanel headers={headers} onLogout={onLogout} />}
@@ -648,7 +651,7 @@ function PollingStationsPanel({ headers, onLogout }: { headers: any; onLogout: (
 
 // --- Private election result review ---
 function ElectionResultsPanel({ headers, onLogout }: { headers: any; onLogout: () => void }) {
-  const [view, setView] = useState<'candidates' | 'reports'>('candidates');
+  const [view] = useState<'candidates' | 'reports'>('reports');
   const [resultView, setResultView] = useState<'active' | 'archived'>('active');
   const [candidates, setCandidates] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
@@ -756,7 +759,7 @@ function ElectionResultsPanel({ headers, onLogout }: { headers: any; onLogout: (
   return (
     <div>
       <div className="mb-6"><h2 className="text-2xl font-bold text-gray-900">Private election result operations</h2><p className="mt-1 text-sm text-gray-500">Agent-reported station results and result-form photos are private evidence. They are not official public declarations and must be verified before operational use.</p></div>
-      <div className="mb-5 flex rounded-lg border bg-white p-1 text-sm font-semibold"><button onClick={() => setView('candidates')} className={`rounded-md px-4 py-2 ${view === 'candidates' ? 'bg-brand-green text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Candidate registry</button><button onClick={() => setView('reports')} className={`rounded-md px-4 py-2 ${view === 'reports' ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>Submitted results ({reports.length})</button></div>
+      <div className="mb-5 rounded-lg border bg-white px-4 py-3 text-sm font-semibold text-gray-700">Private submitted result queue ({reports.length})</div>
       {view === 'candidates' ? (
         <div className="space-y-6">
           <section className="rounded-xl border border-blue-200 bg-blue-50 p-5"><h3 className="font-extrabold text-brand-black">Add candidate to reporting form</h3><p className="mt-1 text-xs text-gray-600">Add every candidate exactly as they should appear on the official counted-results form before allowing agents to submit results.</p><form onSubmit={addCandidate} className="mt-4 grid gap-3 sm:grid-cols-2"><input value={candidateName} onChange={e => setCandidateName(e.target.value)} placeholder="Candidate name" className="rounded-lg border px-3 py-2 text-sm" /><input value={candidateParty} onChange={e => setCandidateParty(e.target.value)} placeholder="Party / affiliation (optional)" className="rounded-lg border px-3 py-2 text-sm" /><input value={candidateImageUrl} onChange={e => { setCandidateImageUrl(e.target.value); setCandidateImageFile(null); }} placeholder="Image URL (optional)" className="rounded-lg border px-3 py-2 text-sm" /><div className="flex items-center gap-3"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { setCandidateImageFile(e.target.files?.[0] || null); if (e.target.files?.[0]) setCandidateImageUrl(''); }} className="min-w-0 text-sm" /><span className="text-xs text-gray-500">JPEG, PNG, WebP · max 5MB</span></div><button disabled={saving || uploadingImage} className="rounded-lg bg-brand-green px-5 py-2 text-sm font-bold text-white disabled:opacity-50">{uploadingImage ? 'Uploading image…' : saving ? 'Adding…' : 'Add candidate'}</button></form></section>
