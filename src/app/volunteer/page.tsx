@@ -109,7 +109,7 @@ export default function VolunteerPage() {
             <div className="text-6xl mb-4">✅</div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h1>
             <p className="text-gray-600 mb-6">
-              Thank you for volunteering as a <strong>{roles.find(r => r.id === formData.role)?.title}</strong>.
+              Thank you for joining the <strong>{roles.find(r => r.id === formData.role)?.title}</strong> campaign team role.
               Our team will contact you shortly.
             </p>
             <div className="space-y-3">

@@ -72,7 +72,7 @@ const roleMeta: Record<string, { label: string; icon: string; color: string; nex
     guide: ['Invite neighbours to community meetings.', 'Share verified campaign information only.', 'Keep notes on local issues and feedback.'],
   },
   social_media: {
-    label: 'Social Media Volunteer', icon: '📱', color: 'bg-green-100 text-green-700',
+    label: 'Social Media Team Member', icon: '📱', color: 'bg-green-100 text-green-700',
     nextStep: 'Join the social-media team group and begin amplifying campaign content.',
     guide: ['Use the approved campaign message below.', 'Be respectful and never spread unverified claims.', 'Share consistently across your active platforms.'],
   },
@@ -100,7 +100,7 @@ export default function VolunteerToolkit({ data }: { data: ToolkitData }) {
             {initials(data.name)}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-extrabold uppercase tracking-widest text-brand-yellow">Volunteer account</p>
+            <p className="text-xs font-extrabold uppercase tracking-widest text-brand-yellow">Campaign Team Account</p>
             <h2 className="mt-1 truncate text-2xl font-extrabold">{data.name}</h2>
             <p className="mt-1 truncate text-sm text-gray-300">{data.email}</p>
           </div>
@@ -118,14 +118,14 @@ export default function VolunteerToolkit({ data }: { data: ToolkitData }) {
         <div className="mb-5 flex flex-wrap items-end justify-between gap-2">
           <div>
             <p className="section-label mb-1">Your journey</p>
-            <h3 className="text-lg font-extrabold">Volunteer onboarding</h3>
+            <h3 className="text-lg font-extrabold">Campaign Team Journey</h3>
           </div>
           <span className="text-xs font-semibold text-gray-400">Step {progressStep} of 3</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <JourneyStep number="1" title="Registered" description="Your details are on file." active />
           <JourneyStep number="2" title="Under review" description="The campaign team checks your application." active={progressStep >= 2} />
-          <JourneyStep number="3" title="Active volunteer" description="Your role resources and team access unlock." active={progressStep >= 3} />
+          <JourneyStep number="3" title="Active team member" description="Your role resources and team access unlock." active={progressStep >= 3} />
         </div>
       </section>
 
@@ -151,7 +151,7 @@ export default function VolunteerToolkit({ data }: { data: ToolkitData }) {
           <div className="flex items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-yellow text-lg">🤝</span>
             <div>
-              <h3 className="font-extrabold text-brand-black">Volunteer standards</h3>
+              <h3 className="font-extrabold text-brand-black">Campaign Team Standards</h3>
               <p className="mt-1 text-sm leading-relaxed text-gray-600">
                 Represent the campaign with respect. Share verified information, protect people&apos;s privacy,
                 and direct questions or incidents to your campaign coordinator.
@@ -196,7 +196,7 @@ function RoleSwitcher({ data }: { data: ToolkitData }) {
 
   return (
     <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="section-label mb-1">Your roles</p><h3 className="text-lg font-extrabold">Switch volunteer workspace</h3></div><span className="text-xs text-gray-400">One account, multiple roles</span></div>
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="section-label mb-1">Your roles</p><h3 className="text-lg font-extrabold">Switch campaign team workspace</h3></div><span className="text-xs text-gray-400">One account, multiple roles</span></div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         {activeAssignments.map(assignment => {
           const meta = roleMeta[assignment.role] || { label: assignment.role, icon: '🙋', color: 'bg-gray-100 text-gray-700' };
@@ -234,7 +234,7 @@ function AwaitingApproval({ status, role }: { status: string; role: { icon: stri
   const suspended = status === 'suspended';
   const archived = status === 'archived';
   const icon = rejected ? '📩' : suspended ? '⏸️' : archived ? '🔒' : '⏳';
-  const title = rejected ? 'Application not approved' : suspended ? 'Volunteer access suspended' : archived ? 'Account archived' : 'Your application is under review';
+  const title = rejected ? 'Application not approved' : suspended ? 'Campaign Team access suspended' : archived ? 'Campaign Team account archived' : 'Your application is under review';
   const message = rejected
     ? 'Please contact the campaign team if you believe this decision needs review.'
     : suspended
@@ -257,7 +257,7 @@ function RoleGuide({ role }: { role: { icon: string; label: string; nextStep: st
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-green text-xl">{role.icon}</span>
         <div className="min-w-0">
-          <p className="section-label mb-1">Active volunteer</p>
+          <p className="section-label mb-1">Active team member</p>
           <h3 className="text-xl font-extrabold">Your {role.label} guide</h3>
           <p className="mt-2 text-sm leading-relaxed text-gray-600">{role.nextStep}</p>
           <ul className="mt-4 space-y-2">
@@ -564,7 +564,7 @@ function StipendPanel({ initialStipend }: { initialStipend: ToolkitData['stipend
             <p className="text-xs font-extrabold uppercase tracking-widest text-blue-700">Volunteer support</p>
             <h3 className="mt-1 text-xl font-extrabold text-brand-black">Weekly mobile-data stipend</h3>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-700">
-              After you have been an approved active volunteer for {activationDelayDays} day{activationDelayDays === 1 ? '' : 's'}, you can request mobile-data support. After a stipend is approved or paid, requests remain limited to once every {repeatCooldownDays} days.
+              After you have been an approved active campaign team member for {activationDelayDays} day{activationDelayDays === 1 ? '' : 's'}, you can request mobile-data support. Support is reviewed and approved by the campaign team; it is not guaranteed compensation. After a stipend is approved or paid, requests remain limited to once every {repeatCooldownDays} days.
             </p>
           </div>
         </div>

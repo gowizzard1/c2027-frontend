@@ -122,7 +122,7 @@ export default function HomePage() {
           <div className="flex gap-3 shrink-0">
             <Link href="/volunteer"
               className="bg-brand-black hover:bg-gray-900 text-brand-yellow font-bold py-2 px-5 rounded-lg text-sm transition-colors">
-              Join as Volunteer
+              Join the Campaign Team
             </Link>
             <Link href="/donate"
               className="bg-brand-green hover:bg-brand-greenlt text-white font-bold py-2 px-5 rounded-lg text-sm transition-colors">
@@ -246,8 +246,8 @@ export default function HomePage() {
             <Link href="/volunteer"
               className="bg-white/5 border border-brand-yellow/30 hover:border-brand-yellow hover:bg-brand-yellow/10 rounded-xl p-6 text-center transition-all block group">
               <div className="text-4xl mb-3">🙋</div>
-              <h3 className="font-extrabold text-brand-yellow text-lg mb-1">Volunteer</h3>
-              <p className="text-gray-400 text-sm group-hover:text-white">Polling agent, mobilizer, social media</p>
+              <h3 className="font-extrabold text-brand-yellow text-lg mb-1">Campaign Team</h3>
+              <p className="text-gray-400 text-sm group-hover:text-white">Polling agent, mobilizer, social media team roles</p>
             </Link>
             <button
               onClick={() => navigator.share?.({ title: heroTitle, text: heroSubtitle, url: window.location.origin })}

@@ -61,7 +61,7 @@ export default function VolunteerLoginPage() {
   if (checkingSession) {
     return (
       <div className="bg-white text-brand-black">
-        <PageHeader label="Volunteers" title="Volunteer Login" />
+        <PageHeader label="Campaign Team" title="Campaign Team Login" />
         <div className="max-w-md mx-auto px-4 py-16 text-center text-gray-400">Checking your account…</div>
       </div>
     );
@@ -69,7 +69,7 @@ export default function VolunteerLoginPage() {
 
   return (
     <div className="bg-white text-brand-black">
-      <PageHeader label="Volunteers" title="Volunteer Login"
+      <PageHeader label="Campaign Team" title="Campaign Team Login"
         subtitle="Log in with your email and the password you set from your invite link." />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid gap-6 md:grid-cols-[1fr_0.85fr] md:items-start">
