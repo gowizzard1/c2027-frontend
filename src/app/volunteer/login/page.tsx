@@ -1,15 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 
 const TOKEN_KEY = 'campaign_volunteer_token';
 
+function requestedDestination() {
+  return typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('next') === '/app'
+    ? '/app'
+    : '/volunteer/dashboard';
+}
+
 export default function VolunteerLoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const nextPath = searchParams.get('next') === '/app' ? '/app' : '/volunteer/dashboard';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -25,7 +29,7 @@ export default function VolunteerLoginPage() {
     }
     fetch('/api/volunteers/me', { headers: { Authorization: `Bearer ${saved}` } })
       .then(response => {
-        if (response.ok) router.replace(nextPath);
+        if (response.ok) router.replace(requestedDestination());
         else {
           sessionStorage.removeItem(TOKEN_KEY);
           setCheckingSession(false);
@@ -35,7 +39,7 @@ export default function VolunteerLoginPage() {
         sessionStorage.removeItem(TOKEN_KEY);
         setCheckingSession(false);
       });
-  }, [router, nextPath]);
+  }, [router]);
 
   const login = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +53,7 @@ export default function VolunteerLoginPage() {
       const data = await res.json();
       if (res.ok && data.token) {
         sessionStorage.setItem(TOKEN_KEY, data.token);
-        router.replace(nextPath);
+        router.replace(requestedDestination());
       } else {
         setError(data.message || 'Login failed.');
       }
