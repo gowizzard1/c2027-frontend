@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import CandidateAvatar from '@/components/CandidateAvatar';
 import CandidateManagementPanel from '@/components/admin/CandidateManagementPanel';
+import MobileAppReleasesPanel from '@/components/admin/MobileAppReleasesPanel';
 
-type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'pollingStations' | 'candidateManagement' | 'electionResults' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
+type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'pollingStations' | 'candidateManagement' | 'electionResults' | 'mobileApp' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
 
 interface Props {
   token: string;
@@ -49,6 +50,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
     { id: 'pollingStations', label: 'Polling Stations', icon: '🗳️' },
     { id: 'candidateManagement', label: 'Candidates', icon: '👤' },
     { id: 'electionResults', label: 'Result Review', icon: '📑' },
+    { id: 'mobileApp', label: 'Mobile App', icon: '📱' },
     { id: 'volunteers',label: 'Volunteers',   icon: '👥' },
     { id: 'orders',    label: 'Orders',       icon: '📦' },
     { id: 'products',  label: 'Products',     icon: '🏪' },
@@ -116,6 +118,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
           {activeTab === 'pollingStations' && <PollingStationsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'candidateManagement' && <CandidateManagementPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'electionResults' && <ElectionResultsPanel headers={headers} onLogout={onLogout} />}
+          {activeTab === 'mobileApp' && <MobileAppReleasesPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'volunteers' && <VolunteersPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'orders' && <OrdersPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'news' && <NewsPanel headers={headers} onLogout={onLogout} />}
