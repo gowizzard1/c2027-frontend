@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
@@ -52,6 +53,9 @@ export default function VolunteerDashboardPage() {
         {!loading && data && (
           <>
             <VolunteerToolkit data={data} />
+            <Link href="/app" className="mt-4 block w-full rounded-lg bg-brand-green px-4 py-3 text-center text-sm font-extrabold text-white transition-colors hover:bg-brand-greenlt">
+              📱 Download Campaign Team App
+            </Link>
             <button onClick={logout} className="mt-4 w-full py-3 text-sm text-gray-400 transition-colors hover:text-gray-600">
               Log out
             </button>

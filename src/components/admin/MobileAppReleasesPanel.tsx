@@ -33,8 +33,8 @@ export default function MobileAppReleasesPanel({ headers, onLogout }: Props) {
       form.append('apk', apk);
       const res = await fetch('/api/upload/mobile-apk', { method: 'POST', headers: { Authorization: headers.Authorization }, body: form });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.url) throw new Error(data.message || 'Could not upload APK.');
-      return data.url as string;
+      if (!res.ok || !data.objectKey) throw new Error(data.message || 'Could not upload APK.');
+      return data.objectKey as string;
     } finally { setUploading(false); }
   };
 
@@ -43,16 +43,16 @@ export default function MobileAppReleasesPanel({ headers, onLogout }: Props) {
     if (!version.trim() || saving) return;
     setSaving(true);
     try {
-      const fileUrl = platform === 'android' ? await uploadApk() : '';
+      const artifactKey = platform === 'android' ? await uploadApk() : '';
       const res = await fetch('/api/admin/mobile-app-releases', {
         method: 'POST', headers,
-        body: JSON.stringify({ platform, version: version.trim(), buildNumber: buildNumber.trim(), fileUrl, externalUrl: platform === 'ios' ? iosUrl.trim() : '', releaseNotes: notes.trim() }),
+        body: JSON.stringify({ platform, version: version.trim(), buildNumber: buildNumber.trim(), artifactKey, externalUrl: platform === 'ios' ? iosUrl.trim() : '', releaseNotes: notes.trim() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { alert(data.message || 'Could not publish app release.'); return; }
       setReleases(prev => [data, ...prev]);
       setVersion(''); setBuildNumber(''); setNotes(''); setApk(null); setIosUrl('');
-      alert('Release uploaded. Mark it active when you are ready for public downloads.');
+      alert('Release uploaded. Mark it active when you are ready for authenticated Campaign Team downloads.');
     } catch (err: any) { alert(err?.message || 'Could not upload app build.'); }
     finally { setSaving(false); }
   };

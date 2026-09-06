@@ -23,7 +23,6 @@ export default function Navbar() {
     { href: '/manifesto',   label: 'Manifesto' },
     { href: '/news',        label: 'News & Events' },
     { href: '/results',     label: 'Results' },
-    { href: '/app',         label: 'Team App' },
     { href: '/volunteer',   label: 'Join Team' },
     { href: '/merchandise', label: 'Merch' },
   ];
