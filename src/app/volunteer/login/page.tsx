@@ -76,7 +76,7 @@ export default function VolunteerLoginPage() {
           <section className="relative overflow-hidden rounded-2xl bg-brand-black p-7 text-white">
             <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand-yellow/10 blur-2xl" />
             <div className="relative">
-              <p className="text-xs font-extrabold uppercase tracking-widest text-brand-yellow">Volunteer workspace</p>
+              <p className="text-xs font-extrabold uppercase tracking-widest text-brand-yellow">Campaign Team Workspace</p>
               <h2 className="mt-2 text-3xl font-extrabold leading-tight">Your role. Your resources. Your impact.</h2>
               <p className="mt-4 text-sm leading-relaxed text-gray-300">Access your volunteer status, campaign guidance, team resources, and role-specific activities in one secure place.</p>
               <div className="mt-7 space-y-3">

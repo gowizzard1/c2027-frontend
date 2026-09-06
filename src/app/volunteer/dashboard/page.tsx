@@ -43,12 +43,12 @@ export default function VolunteerDashboardPage() {
   return (
     <div className="bg-white text-brand-black">
       <PageHeader
-        label="Volunteer Portal"
-        title={data ? `Welcome back, ${data.name.split(' ')[0]}!` : 'Volunteer Dashboard'}
+        label="Campaign Team Portal"
+        title={data ? `Welcome back, ${data.name.split(' ')[0]}!` : 'Campaign Team Dashboard'}
         subtitle="Your campaign role, resources, and next steps in one place."
       />
       <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {loading && <div className="py-16 text-center text-gray-400">Loading your volunteer dashboard…</div>}
+        {loading && <div className="py-16 text-center text-gray-400">Loading your campaign team dashboard…</div>}
         {!loading && data && (
           <>
             <VolunteerToolkit data={data} />

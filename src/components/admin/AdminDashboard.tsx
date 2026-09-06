@@ -445,7 +445,7 @@ function StipendsPanel({ headers, onLogout }: { headers: any; onLogout: () => vo
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Mobile-data stipend requests</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Campaign Team mobile-data support requests</h2>
         <p className="mt-1 text-sm text-gray-500">Volunteers become eligible only after the active-service delay configured in Settings. After approval/paid status, repeat requests are limited to once every 7 days. Approve requests here, send payment manually for now, then mark it paid. M-Pesa automation can replace this final manual step later.</p>
       </div>
       {requests.length === 0 ? <div className="rounded-xl border border-dashed p-10 text-center text-gray-500">No stipend requests yet.</div> : (
@@ -914,7 +914,7 @@ See you inside — together we rise! 🇰🇪`;
     <div>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Volunteer Management</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Campaign Team Management</h2>
           <p className="mt-1 text-sm text-gray-500">
             Approve pending applications, suspend active access when needed, and archive records without deleting history.
           </p>

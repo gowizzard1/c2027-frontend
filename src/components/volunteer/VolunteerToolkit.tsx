@@ -240,7 +240,7 @@ function AwaitingApproval({ status, role }: { status: string; role: { icon: stri
     : suspended
       ? 'Your access has been paused by the campaign team. Please contact your coordinator for next steps.'
       : archived
-        ? 'This volunteer account is archived. Please contact the campaign team if you need it restored.'
+        ? 'This campaign team account is archived. Please contact the campaign team if you need it restored.'
         : `Thanks for applying as a ${role.label}. ${role.nextStep}`;
   return (
     <section className={`rounded-2xl border p-6 text-center ${rejected ? 'border-red-200 bg-red-50' : suspended || archived ? 'border-gray-300 bg-gray-50' : 'border-brand-yellow bg-brand-yellow/10'}`}>
@@ -562,7 +562,7 @@ function StipendPanel({ initialStipend }: { initialStipend: ToolkitData['stipend
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-xl text-white">📶</span>
           <div>
             <p className="text-xs font-extrabold uppercase tracking-widest text-blue-700">Volunteer support</p>
-            <h3 className="mt-1 text-xl font-extrabold text-brand-black">Weekly mobile-data stipend</h3>
+            <h3 className="mt-1 text-xl font-extrabold text-brand-black">Weekly mobile-data support</h3>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-700">
               After you have been an approved active campaign team member for {activationDelayDays} day{activationDelayDays === 1 ? '' : 's'}, you can request mobile-data support. Support is reviewed and approved by the campaign team; it is not guaranteed compensation. After a stipend is approved or paid, requests remain limited to once every {repeatCooldownDays} days.
             </p>

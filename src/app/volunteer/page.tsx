@@ -119,7 +119,7 @@ export default function VolunteerPage() {
                 rel="noopener noreferrer"
                 className="bg-[#25D366] hover:bg-[#128C7E] text-white font-semibold py-3 px-6 rounded-lg w-full inline-block text-center transition-all"
               >
-                💬 Join Volunteer WhatsApp Group
+                💬 Join Campaign Team WhatsApp Group
               </a>
               <button
                 onClick={() => {
@@ -146,7 +146,7 @@ export default function VolunteerPage() {
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-sm text-gray-300">Already registered?</span>
           <Link href="/volunteer/login" className="inline-flex items-center gap-2 rounded-lg bg-brand-yellow px-5 py-2.5 text-sm font-extrabold text-brand-black transition-colors hover:bg-brand-yellowlt">
-            🔐 Volunteer Login →
+            🔐 Campaign Team Login →
           </Link>
         </div>
       </PageHeader>
@@ -324,7 +324,7 @@ export default function VolunteerPage() {
                 disabled={isSubmitting}
                 className="btn-primary w-full py-4 text-lg"
               >
-                {isSubmitting ? '⏳ Submitting...' : '✅ Register as Volunteer'}
+                {isSubmitting ? '⏳ Submitting...' : '✅ Apply to Join the Campaign Team'}
               </button>
             </form>
           </div>

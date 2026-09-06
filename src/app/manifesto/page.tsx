@@ -29,7 +29,7 @@ export default function ManifestoPage() {
         subtitle="A concrete, deliverable plan for every sector — built with community input and grounded in real needs."
       >
         <div className="flex flex-wrap gap-3">
-          <Link href="/volunteer" className="bg-brand-yellow hover:bg-brand-yellowlt text-brand-black font-extrabold py-2 px-6 rounded-lg text-sm transition-colors">Join as Volunteer</Link>
+          <Link href="/volunteer" className="bg-brand-yellow hover:bg-brand-yellowlt text-brand-black font-extrabold py-2 px-6 rounded-lg text-sm transition-colors">Join the Campaign Team</Link>
           <Link href="/donate" className="bg-brand-green hover:bg-brand-greenlt text-white font-bold py-2 px-6 rounded-lg text-sm transition-colors">💚 Support Campaign</Link>
           <button onClick={() => setView(view === 'browse' ? 'document' : 'browse')} className="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold py-2 px-6 rounded-lg text-sm transition-colors">
             {view === 'browse' ? '📄 Read as Document' : '↩ Browse Manifesto'}

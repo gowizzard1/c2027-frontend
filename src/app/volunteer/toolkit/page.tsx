@@ -134,7 +134,7 @@ function ActivateInner() {
 export default function VolunteerToolkitPage() {
   return (
     <div className="bg-white text-brand-black">
-      <PageHeader label="Volunteer Portal" title="Activate Your Account" />
+      <PageHeader label="Campaign Team Portal" title="Activate Your Account" />
       <Suspense fallback={<div className="max-w-md mx-auto px-4 py-16 text-center text-gray-400">Loading…</div>}>
         <ActivateInner />
       </Suspense>
