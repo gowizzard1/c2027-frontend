@@ -324,79 +324,103 @@ function DonationsPanel({ headers, onLogout }: { headers: any; onLogout: () => v
 // --- Pledges Panel (donation interest to follow up on) ---
 function PledgesPanel({ headers, onLogout }: { headers: any; onLogout: () => void }) {
   const [pledges, setPledges] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [sending, setSending] = useState<'thank_you' | 'donations_ready' | null>(null);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetch('/api/admin/pledges', { headers })
-      .then(res => { if (res.status === 401) { onLogout(); return []; } return res.json(); })
-      .then(data => setPledges(data || []))
-      .catch(() => {});
-  }, []);
+  const load = () => fetch('/api/admin/pledges', { headers })
+    .then(res => { if (res.status === 401) { onLogout(); return []; } return res.ok ? res.json() : []; })
+    .then(data => setPledges(data || []))
+    .catch(() => setError('Could not load pledges.'));
+
+  useEffect(() => { load(); }, []);
 
   const updateStatus = async (id: string, status: string) => {
-    await fetch(`/api/admin/pledges/${id}`, {
-      method: 'PATCH', headers, body: JSON.stringify({ status }),
+    const res = await fetch(`/api/admin/pledges/${id}`, { method: 'PATCH', headers, body: JSON.stringify({ status }) });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) { onLogout(); return; }
+    if (!res.ok) { alert(data.message || 'Could not update this pledge.'); return; }
+    setPledges(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(current => {
+      if (current.includes(id)) return current.filter(selectedId => selectedId !== id);
+      if (current.length >= 25) { alert('Select up to 25 pledgers per email campaign.'); return current; }
+      return [...current, id];
     });
-    setPledges(prev => prev.map(p => p.id === id ? { ...p, status } : p));
   };
 
-  const remove = async (id: string) => {
-    if (!confirm('Delete this pledge? This cannot be undone.')) return;
-    await fetch(`/api/admin/pledges/${id}`, { method: 'DELETE', headers });
-    setPledges(prev => prev.filter(p => p.id !== id));
+  const selectVisible = () => {
+    const visible = pledges.filter(pledge => pledge.status !== 'archived').slice(0, 25).map(pledge => pledge.id);
+    setSelectedIds(current => current.length === visible.length && visible.every(id => current.includes(id)) ? [] : visible);
   };
 
-  const statusStyle = (s: string) =>
-    s === 'converted' ? 'bg-green-100 text-green-700' :
-    s === 'contacted' ? 'bg-blue-100 text-blue-700' :
-    s === 'archived'  ? 'bg-gray-100 text-gray-500' :
+  const sendCampaign = async (kind: 'thank_you' | 'donations_ready', ids = selectedIds) => {
+    if (!ids.length || sending) return;
+    const label = kind === 'thank_you' ? 'thank-you email' : 'donations-ready notification';
+    if (!confirm(`Send the ${label} to ${ids.length} selected pledger${ids.length === 1 ? '' : 's'}? Emails are sent immediately and every attempt is recorded.`)) return;
+    setSending(kind); setError('');
+    try {
+      const res = await fetch('/api/admin/pledges/email-campaigns', { method: 'POST', headers, body: JSON.stringify({ kind, pledgeIds: ids }) });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) { onLogout(); return; }
+      if (!res.ok) { setError(data.message || 'Could not send the pledge email campaign.'); return; }
+      setSelectedIds([]);
+      alert(`${data.accepted} email${data.accepted === 1 ? '' : 's'} accepted by the provider${data.failed ? `; ${data.failed} failed.` : '.'}`);
+      load();
+    } catch {
+      setError('Could not send the pledge email campaign. Please try again.');
+    } finally { setSending(null); }
+  };
+
+  const statusStyle = (status: string) =>
+    status === 'converted' ? 'bg-green-100 text-green-700' :
+    status === 'contacted' ? 'bg-blue-100 text-blue-700' :
+    status === 'archived' ? 'bg-gray-100 text-gray-500' :
     'bg-yellow-100 text-yellow-700';
+
+  const selectedCount = selectedIds.length;
+  const visibleSelected = pledges.filter(pledge => pledge.status !== 'archived').slice(0, 25).map(pledge => pledge.id);
+  const allVisibleSelected = visibleSelected.length > 0 && visibleSelected.every(id => selectedIds.includes(id));
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Pledges ({pledges.length})</h2>
-        <p className="text-sm text-gray-500 mt-0.5">
-          People who registered interest while donations are being set up. Contact them once payments are live.
-        </p>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Pledges ({pledges.length})</h2>
+          <p className="mt-0.5 text-sm text-gray-500">Thank people who pledged, then notify selected pledgers when donations are ready. Messages are fixed campaign templates and every provider attempt is recorded.</p>
+        </div>
+        <button onClick={selectVisible} className="rounded-lg border px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{allVisibleSelected ? 'Clear selection' : 'Select up to 25'}</button>
       </div>
-      {pledges.length === 0 ? (
-        <p className="text-gray-500">No pledges yet.</p>
-      ) : (
-        <div className="bg-white rounded-lg border overflow-x-auto">
+
+      <section className="mb-5 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 p-4">
+        <p className="text-sm font-semibold text-brand-black">Selected recipients: {selectedCount} / 25</p>
+        <p className="mt-1 text-xs text-gray-600">“Accepted” means the configured email provider accepted the message. It does not prove inbox delivery. Do not send notifications until donation integration is ready.</p>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <button disabled={!selectedCount || !!sending} onClick={() => sendCampaign('thank_you')} className="rounded-lg bg-brand-green px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{sending === 'thank_you' ? 'Sending thank-you emails…' : 'Send thank-you email'}</button>
+          <button disabled={!selectedCount || !!sending} onClick={() => sendCampaign('donations_ready')} className="rounded-lg bg-brand-black px-4 py-2 text-sm font-bold text-brand-yellow disabled:cursor-not-allowed disabled:opacity-50">{sending === 'donations_ready' ? 'Sending donation notifications…' : 'Notify donations ready'}</button>
+        </div>
+      </section>
+
+      {error && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700">{error}</p>}
+      {pledges.length === 0 ? <p className="text-gray-500">No pledges yet.</p> : (
+        <div className="overflow-x-auto rounded-lg border bg-white">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-3 text-left">Name</th>
-                <th className="px-4 py-3 text-left">Contact</th>
-                <th className="px-4 py-3 text-left">Intended</th>
-                <th className="px-4 py-3 text-left">Message</th>
-                <th className="px-4 py-3 text-left">Date</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pledges.map((p) => (
-                <tr key={p.id} className="border-b hover:bg-gray-50 align-top">
-                  <td className="px-4 py-3 font-medium">{p.name}</td>
-                  <td className="px-4 py-3 text-xs">
-                    <div><a href={`tel:${p.phone}`} className="text-brand-green hover:underline">{p.phone}</a></div>
-                    <div><a href={`mailto:${p.email}`} className="text-gray-500 hover:underline">{p.email}</a></div>
-                  </td>
-                  <td className="px-4 py-3">{p.amount ? `KES ${Number(p.amount).toLocaleString()}` : '—'}</td>
-                  <td className="px-4 py-3 text-xs max-w-[220px] text-gray-600">{p.message || '—'}</td>
-                  <td className="px-4 py-3 text-xs text-gray-500">{new Date(p.createdAt).toLocaleDateString()}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${statusStyle(p.status)}`}>{p.status}</span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <button onClick={() => updateStatus(p.id, 'contacted')} className="text-xs text-blue-600 hover:underline mr-2">Contacted</button>
-                    <button onClick={() => updateStatus(p.id, 'converted')} className="text-xs text-green-600 hover:underline mr-2">Converted</button>
-                    <button onClick={() => remove(p.id)} className="text-xs text-red-600 hover:underline">Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+            <thead className="border-b bg-gray-50"><tr><th className="px-3 py-3 text-left"><span className="sr-only">Select</span></th><th className="px-4 py-3 text-left">Name</th><th className="px-4 py-3 text-left">Contact</th><th className="px-4 py-3 text-left">Intended</th><th className="px-4 py-3 text-left">Message</th><th className="px-4 py-3 text-left">Email history</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-left">Actions</th></tr></thead>
+            <tbody>{pledges.map(pledge => {
+              const latestDelivery = pledge.emailDeliveries?.[0];
+              return <tr key={pledge.id} className="align-top border-b hover:bg-gray-50">
+                <td className="px-3 py-3"><input type="checkbox" checked={selectedIds.includes(pledge.id)} disabled={pledge.status === 'archived'} onChange={() => toggleSelection(pledge.id)} aria-label={`Select ${pledge.name} for pledge email`} /></td>
+                <td className="px-4 py-3 font-medium">{pledge.name}</td>
+                <td className="px-4 py-3 text-xs"><a href={`mailto:${pledge.email}`} className="text-gray-600 hover:underline">{pledge.email}</a><br /><a href={`tel:${pledge.phone}`} className="text-brand-green hover:underline">{pledge.phone}</a></td>
+                <td className="px-4 py-3">{pledge.amount ? `KES ${Number(pledge.amount).toLocaleString()}` : '—'}</td>
+                <td className="max-w-[220px] px-4 py-3 text-xs text-gray-600">{pledge.message || '—'}</td>
+                <td className="min-w-[180px] px-4 py-3 text-xs">{latestDelivery ? <><p className={latestDelivery.status === 'accepted' ? 'font-semibold text-green-700' : latestDelivery.status === 'failed' ? 'font-semibold text-red-700' : 'font-semibold text-amber-700'}>{latestDelivery.kind === 'thank_you' ? 'Thank-you' : 'Donations ready'}: {latestDelivery.status}</p><p className="mt-1 text-gray-500">{new Date(latestDelivery.createdAt).toLocaleString()}</p>{pledge.emailDeliveries.length > 1 && <p className="mt-1 text-gray-400">{pledge.emailDeliveries.length} recent attempts</p>}</> : <span className="text-gray-400">No email attempts</span>}</td>
+                <td className="px-4 py-3"><span className={`rounded px-2 py-1 text-xs font-medium ${statusStyle(pledge.status)}`}>{pledge.status}</span></td>
+                <td className="min-w-[170px] px-4 py-3"><div className="flex flex-wrap gap-x-2 gap-y-1 text-xs">{pledge.status !== 'archived' && <><button disabled={!!sending} onClick={() => sendCampaign('thank_you', [pledge.id])} className="font-semibold text-brand-green hover:underline disabled:opacity-50">Thank</button><button disabled={!!sending} onClick={() => sendCampaign('donations_ready', [pledge.id])} className="text-brand-black hover:underline disabled:opacity-50">Notify ready</button><button onClick={() => updateStatus(pledge.id, 'contacted')} className="text-blue-600 hover:underline">Contacted</button><button onClick={() => updateStatus(pledge.id, 'converted')} className="text-green-600 hover:underline">Converted</button><button onClick={() => updateStatus(pledge.id, 'archived')} className="text-gray-600 hover:underline">Archive</button></>}</div></td>
+              </tr>;
+            })}</tbody>
           </table>
         </div>
       )}
