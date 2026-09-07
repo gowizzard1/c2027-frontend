@@ -11,6 +11,10 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Isaac K. Maiywa - Kirgit Kipkeleny Tulwo',
   description: 'Join our movement for change. Donate, volunteer, and be part of the vision.',
+  icons: {
+    icon: [{ url: '/logo.png', type: 'image/png' }],
+    apple: [{ url: '/logo.png', type: 'image/png' }],
+  },
 };
 
 // Ensures the site renders at device width on phones/tablets instead of a zoomed-out
