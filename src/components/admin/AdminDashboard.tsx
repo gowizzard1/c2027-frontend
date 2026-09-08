@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import CandidateAvatar from '@/components/CandidateAvatar';
 import CandidateManagementPanel from '@/components/admin/CandidateManagementPanel';
 import MobileAppReleasesPanel from '@/components/admin/MobileAppReleasesPanel';
+import PollsPanel from '@/components/admin/PollsPanel';
 
-type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'pollingStations' | 'candidateManagement' | 'electionResults' | 'mobileApp' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
+type Tab = 'overview' | 'analytics' | 'manifesto' | 'biography' | 'news' | 'donations' | 'pledges' | 'stipends' | 'mobilizerReports' | 'pollingStations' | 'polls' | 'candidateManagement' | 'electionResults' | 'mobileApp' | 'volunteers' | 'orders' | 'products' | 'payments' | 'settings';
 
 interface Props {
   token: string;
@@ -48,6 +49,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
     { id: 'stipends',  label: 'Stipends',     icon: '📶' },
     { id: 'mobilizerReports', label: 'Mobilizer Reports', icon: '📣' },
     { id: 'pollingStations', label: 'Polling Stations', icon: '🗳️' },
+    { id: 'polls', label: 'Opinion Polls', icon: '📊' },
     { id: 'candidateManagement', label: 'Candidates', icon: '👤' },
     { id: 'electionResults', label: 'Result Review', icon: '📑' },
     { id: 'mobileApp', label: 'Mobile App', icon: '📱' },
@@ -116,6 +118,7 @@ export default function AdminDashboard({ token, onLogout }: Props) {
           {activeTab === 'stipends' && <StipendsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'mobilizerReports' && <MobilizerReportsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'pollingStations' && <PollingStationsPanel headers={headers} onLogout={onLogout} />}
+          {activeTab === 'polls' && <PollsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'candidateManagement' && <CandidateManagementPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'electionResults' && <ElectionResultsPanel headers={headers} onLogout={onLogout} />}
           {activeTab === 'mobileApp' && <MobileAppReleasesPanel headers={headers} onLogout={onLogout} />}
