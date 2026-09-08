@@ -8,9 +8,25 @@ import AnalyticsTracker from '@/components/AnalyticsTracker';
 
 const inter = Inter({ subsets: ['latin'] });
 
+const websiteStructuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Isaac Maiywa',
+  alternateName: 'Maiywa 4 Turbo 2027',
+  url: 'https://www.maiywa.site/',
+};
+
 export const metadata: Metadata = {
-  title: 'Isaac K. Maiywa - Kirgit Kipkeleny Tulwo',
-  description: 'Join our movement for change. Donate, volunteer, and be part of the vision.',
+  title: 'Isaac Maiywa | The Voice of Turbo',
+  applicationName: 'Isaac Maiywa',
+  description: 'Isaac Maiywa, the Voice of Turbo: a campaign for accountable representation, development, and opportunity across Turbo Constituency.',
+  openGraph: {
+    type: 'website',
+    url: 'https://www.maiywa.site/',
+    siteName: 'Isaac Maiywa',
+    title: 'Isaac Maiywa | The Voice of Turbo',
+    description: 'A campaign for accountable representation, development, and opportunity across Turbo Constituency.',
+  },
   icons: {
     icon: [{ url: '/logo.png', type: 'image/png' }],
     apple: [{ url: '/logo.png', type: 'image/png' }],
@@ -33,6 +49,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteStructuredData) }}
+        />
+      </head>
       <body className={inter.className}>
         <Navbar />
         <AnalyticsTracker />
