@@ -9,6 +9,7 @@ const EMPTY_FORM = { title: '', slug: '', prompt: '', description: '', candidate
 export default function PollsPanel({ headers, onLogout }: Props) {
   const [polls, setPolls] = useState<any[]>([]);
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [managedRaces, setManagedRaces] = useState<any[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -19,11 +20,13 @@ export default function PollsPanel({ headers, onLogout }: Props) {
   const load = () => Promise.all([
     fetch(`/api/admin/opinion-polls?includeArchived=${showArchived}`, { headers }),
     fetch('/api/admin/election-candidates', { headers }),
-  ]).then(async ([pollResponse, candidateResponse]) => {
-    if (pollResponse.status === 401 || candidateResponse.status === 401) { onLogout(); return; }
-    if (!pollResponse.ok || !candidateResponse.ok) throw new Error('Could not load polls or candidates.');
+    fetch('/api/admin/candidate-races', { headers }),
+  ]).then(async ([pollResponse, candidateResponse, raceResponse]) => {
+    if (pollResponse.status === 401 || candidateResponse.status === 401 || raceResponse.status === 401) { onLogout(); return; }
+    if (!pollResponse.ok || !candidateResponse.ok || !raceResponse.ok) throw new Error('Could not load polls, candidates, or races.');
     setPolls(await pollResponse.json());
     setCandidates(await candidateResponse.json());
+    setManagedRaces(await raceResponse.json());
   }).catch((err: Error) => setError(err.message));
 
   useEffect(() => { load(); }, [showArchived]);
@@ -76,7 +79,7 @@ export default function PollsPanel({ headers, onLogout }: Props) {
   };
 
   const badge = (status: string) => status === 'published' ? 'bg-green-100 text-green-700' : status === 'closed' ? 'bg-blue-100 text-blue-700' : status === 'archived' ? 'bg-gray-200 text-gray-600' : 'bg-yellow-100 text-yellow-700';
-  const races = Array.from(new Set(candidates.map(candidate => candidate.race).filter((race: string) => race && race !== 'Unassigned'))).sort() as string[];
+  const races = managedRaces.filter(race => race.active && !race.archivedAt && race.name !== 'Unassigned').map(race => race.name) as string[];
   const raceCandidates = candidates.filter(candidate => candidate.race === selectedRace);
 
   return <div className="space-y-6">

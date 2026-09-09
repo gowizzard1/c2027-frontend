@@ -10,6 +10,9 @@ interface Props {
 
 export default function CandidateManagementPanel({ headers, onLogout }: Props) {
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [races, setRaces] = useState<any[]>([]);
+  const [newRaceName, setNewRaceName] = useState('');
+  const [raceSaving, setRaceSaving] = useState(false);
   const [newCandidate, setNewCandidate] = useState({ name: '', party: '', race: '', imageUrl: '' });
   const [newImage, setNewImage] = useState<File | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -18,10 +21,15 @@ export default function CandidateManagementPanel({ headers, onLogout }: Props) {
   const [saving, setSaving] = useState(false);
 
   const loadCandidates = () => {
-    fetch('/api/admin/election-candidates?includeInactive=true', { headers })
-      .then(res => { if (res.status === 401) { onLogout(); return []; } return res.json(); })
-      .then(data => setCandidates(data || []))
-      .catch(() => setCandidates([]));
+    Promise.all([
+      fetch('/api/admin/election-candidates?includeInactive=true', { headers }),
+      fetch('/api/admin/candidate-races?includeInactive=true', { headers }),
+    ]).then(async ([candidateResponse, raceResponse]) => {
+      if (candidateResponse.status === 401 || raceResponse.status === 401) { onLogout(); return; }
+      if (!candidateResponse.ok || !raceResponse.ok) throw new Error('Could not load candidates or race management.');
+      setCandidates(await candidateResponse.json());
+      setRaces(await raceResponse.json());
+    }).catch(() => { setCandidates([]); setRaces([]); });
   };
 
   useEffect(() => { loadCandidates(); }, []);
@@ -38,6 +46,27 @@ export default function CandidateManagementPanel({ headers, onLogout }: Props) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.url) throw new Error(data.message || 'Could not upload candidate image.');
     return data.url as string;
+  };
+
+  const createRace = async () => {
+    const name = newRaceName.trim();
+    if (!name || raceSaving) return;
+    setRaceSaving(true);
+    try {
+      const response = await fetch('/api/admin/candidate-races', { method: 'POST', headers, body: JSON.stringify({ name }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { alert(data.message || 'Could not create race.'); return; }
+      setRaces(current => [...current, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewRaceName('');
+    } finally { setRaceSaving(false); }
+  };
+
+  const archiveRace = async (race: any) => {
+    if (!confirm(`Archive ${race.name}? New candidates and polls will no longer be able to select it.`)) return;
+    const response = await fetch(`/api/admin/candidate-races/${race.id}/archive`, { method: 'POST', headers });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) { alert(data.message || 'Could not archive this race.'); return; }
+    setRaces(current => current.map(item => item.id === race.id ? data : item));
   };
 
   const addCandidate = async (e: React.FormEvent) => {
@@ -131,12 +160,19 @@ export default function CandidateManagementPanel({ headers, onLogout }: Props) {
         <p className="mt-1 text-sm text-gray-500">Manage names, affiliations, images, and election availability. Missing images show a neutral avatar placeholder.</p>
       </div>
 
+      <section className="rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 p-5">
+        <h3 className="font-extrabold text-brand-black">Race Management</h3>
+        <p className="mt-1 text-xs text-gray-700">Create each election race once, then assign candidates from the controlled list.</p>
+        <div className="mt-4 flex flex-wrap gap-3"><input value={newRaceName} onChange={e => setNewRaceName(e.target.value)} placeholder="Race, e.g. Governor — Uasin Gishu" className="min-w-60 flex-1 rounded-lg border px-3 py-2 text-sm" /><button disabled={raceSaving || !newRaceName.trim()} onClick={createRace} className="rounded-lg bg-brand-black px-5 py-2 text-sm font-bold text-brand-yellow disabled:opacity-50">{raceSaving ? 'Creating…' : 'Create race'}</button></div>
+        <div className="mt-4 flex flex-wrap gap-2">{races.map(race => <span key={race.id} className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${race.active && !race.archivedAt ? 'bg-white text-brand-black' : 'bg-gray-200 text-gray-500'}`}>{race.name}{race.name !== 'Unassigned' && race.active && !race.archivedAt && <button onClick={() => archiveRace(race)} className="text-red-600 hover:underline">Archive</button>}</span>)}</div>
+      </section>
+
       <section className="rounded-xl border border-blue-200 bg-blue-50 p-5">
         <h3 className="font-extrabold text-brand-black">Add candidate</h3>
         <form onSubmit={addCandidate} className="mt-4 grid gap-3 sm:grid-cols-2">
           <input value={newCandidate.name} onChange={e => setNewCandidate({ ...newCandidate, name: e.target.value })} placeholder="Candidate name" className="rounded-lg border px-3 py-2 text-sm" />
           <input value={newCandidate.party} onChange={e => setNewCandidate({ ...newCandidate, party: e.target.value })} placeholder="Party / affiliation (optional)" className="rounded-lg border px-3 py-2 text-sm" />
-          <input required value={newCandidate.race} onChange={e => setNewCandidate({ ...newCandidate, race: e.target.value })} placeholder="Race, e.g. Governor — Uasin Gishu" className="rounded-lg border px-3 py-2 text-sm" />
+          <select required value={newCandidate.race} onChange={e => setNewCandidate({ ...newCandidate, race: e.target.value })} className="rounded-lg border px-3 py-2 text-sm"><option value="">Select managed race</option>{races.filter(race => race.active && !race.archivedAt).map(race => <option key={race.id} value={race.name}>{race.name}</option>)}</select>
           <input value={newCandidate.imageUrl} onChange={e => { setNewCandidate({ ...newCandidate, imageUrl: e.target.value }); setNewImage(null); }} placeholder="Image URL (optional)" className="rounded-lg border px-3 py-2 text-sm" />
           <div className="flex items-center gap-3"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { setNewImage(e.target.files?.[0] || null); if (e.target.files?.[0]) setNewCandidate({ ...newCandidate, imageUrl: '' }); }} className="min-w-0 text-sm" /><span className="text-xs text-gray-500">JPEG/PNG/WebP · 5MB</span></div>
           <button disabled={saving} className="rounded-lg bg-brand-green px-5 py-2 text-sm font-bold text-white disabled:opacity-50">{saving ? 'Saving…' : 'Add candidate'}</button>
@@ -158,7 +194,7 @@ export default function CandidateManagementPanel({ headers, onLogout }: Props) {
                     <div className="space-y-3">
                       <input value={editCandidate.name} onChange={e => setEditCandidate({ ...editCandidate, name: e.target.value })} className="w-full rounded border px-3 py-2 text-sm" />
                       <input value={editCandidate.party} onChange={e => setEditCandidate({ ...editCandidate, party: e.target.value })} placeholder="Party / affiliation" className="w-full rounded border px-3 py-2 text-sm" />
-                      <input required value={editCandidate.race} onChange={e => setEditCandidate({ ...editCandidate, race: e.target.value })} placeholder="Race, e.g. MP — Turbo Constituency" className="w-full rounded border px-3 py-2 text-sm" />
+                      <select required value={editCandidate.race} onChange={e => setEditCandidate({ ...editCandidate, race: e.target.value })} className="w-full rounded border px-3 py-2 text-sm"><option value="">Select managed race</option>{races.filter(race => (race.active && !race.archivedAt) || race.name === editCandidate.race).map(race => <option key={race.id} value={race.name}>{race.name}</option>)}</select>
                       <input value={editCandidate.imageUrl} onChange={e => { setEditCandidate({ ...editCandidate, imageUrl: e.target.value }); setEditImage(null); }} placeholder="Image URL" className="w-full rounded border px-3 py-2 text-sm" />
                       <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { setEditImage(e.target.files?.[0] || null); if (e.target.files?.[0]) setEditCandidate({ ...editCandidate, imageUrl: '' }); }} className="w-full text-xs" />
                       <div className="flex gap-3"><button disabled={saving} onClick={() => saveEdit(candidate)} className="text-sm font-semibold text-brand-green hover:underline">Save changes</button><button onClick={() => setEditingId(null)} className="text-sm text-gray-500 hover:underline">Cancel</button></div>
