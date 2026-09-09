@@ -30,7 +30,7 @@ const nextConfig = {
     // Default to the production Railway backend when NEXT_PUBLIC_API_URL isn't set.
     // Override via env for local dev (http://localhost:5001) or a different backend.
     const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL || 'https://c2027-backend-production.up.railway.app';
+      process.env.NEXT_PUBLIC_API_URL || 'https://api.maiywa.site';
     return [
       {
         source: '/api/:path*',
