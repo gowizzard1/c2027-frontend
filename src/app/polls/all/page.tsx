@@ -5,7 +5,7 @@ import Link from 'next/link';
 import CandidateAvatar from '@/components/CandidateAvatar';
 
 interface PollOption { id: string; name: string; party?: string | null; imageUrl?: string | null; votes: number; percentage: number; }
-interface Poll { slug: string; title: string; race?: string; prompt: string; description?: string | null; status: 'published' | 'closed'; totalVotes: number; options: PollOption[]; }
+interface Poll { slug: string; title: string; race?: string; prompt: string; description?: string | null; status: 'published' | 'closed'; closesAt?: string | null; totalVotes: number; options: PollOption[]; }
 
 export default function OpinionPollDirectoryPage() {
   const [polls, setPolls] = useState<Poll[]>([]);
